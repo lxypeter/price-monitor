@@ -1,5 +1,11 @@
 # -*- coding: utf-8 -*-
 
+'''
+爬虫通用Exception
+'''
+
+__author__ = 'CY Lee'
+
 class ItemUrlError(Exception):
     '''
     商品链接错误

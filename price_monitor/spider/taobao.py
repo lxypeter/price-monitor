@@ -4,6 +4,8 @@
 淘宝爬虫
 '''
 
+__author__ = 'CY Lee'
+
 import logging
 import json
 import re
