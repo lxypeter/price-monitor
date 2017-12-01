@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html {% block html_attr %}{% endblock %}>
+<head>
+    <meta charset="utf-8" />
+    {% block meta %}<!-- block meta  -->{% endblock %}
+    <title>{% block title %} ? {% endblock %} - 等价</title>
+    <link rel="stylesheet" href="/static/css/uikit.min.css" />
+    <script src="/static/js/uikit.min.js"></script>
+    <script src="/static/js/uikit-icons.min.js"></script>
+    <script src="/static/js/vue.js"></script>
+    {% block beforehead %}<!-- before head  -->{% endblock %}
+</head>
+<body {% block body_attr %}{% endblock %}>
+    {% block body %}
+    {% endblock %}
+</body>
+</html>

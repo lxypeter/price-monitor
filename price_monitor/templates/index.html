@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Title</title>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <link rel="stylesheet" href="/static/css/uikit.min.css" />
+        <script src="/static/js/uikit.min.js"></script>
+        <script src="/static/js/uikit-icons.min.js"></script>
+    </head>
+    <body>
+        <nav class="uk-navbar-container" uk-navbar>
+            <div class="uk-navbar-left">
+                <ul class="uk-navbar-nav">
+                    <a class="uk-navbar-item uk-logo" href="#">等价</a>
+                    <li class="uk-active"><a href="#">Active</a></li>
+                    <li>
+                        <a href="#">Parent</a>
+                        <div class="uk-navbar-dropdown">
+                            <ul class="uk-nav uk-navbar-dropdown-nav">
+                                <li class="uk-active"><a href="#">Active</a></li>
+                                <li><a href="#">Item</a></li>
+                                <li><a href="#">Item</a></li>
+                            </ul>
+                        </div>
+                    </li>
+                    <li><a href="#">Item</a></li>
+                </ul>
+            </div>
+            <div class="uk-navbar-right">
+                <a href="#">
+                    <span class="uk-icon uk-navbar-toggle" uk-icon="icon: cog" />
+                </a>
+                <a href="#">
+                    <span class="uk-icon uk-navbar-toggle" uk-icon="icon: sign-in" />
+                </a>
+                <a href="#">
+                    <span class="uk-icon uk-navbar-toggle" uk-icon="icon: sign-out" />
+                </a>
+            </div>
+        </nav>
+    </body>
+</html>

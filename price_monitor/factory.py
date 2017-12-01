@@ -19,6 +19,10 @@ def create_app():
     app = Flask(__name__, instance_relative_config=True)
     app.config.from_object('config')
     app.config.from_pyfile('config.py')
+
+    app.jinja_env.variable_start_string = '{{{'
+    app.jinja_env.variable_end_string = '}}}'
+
     # register blueprint
     app.register_blueprint(users)
     # init database
@@ -32,7 +36,7 @@ def register_teardowns(app):
     close database connection when server teardown
     '''
     @app.teardown_appcontext
-    def close_db():
+    def close_db(error):
         '''
         close database connection
         '''
