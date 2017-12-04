@@ -8,7 +8,7 @@ __author__ = 'CY Lee'
 
 import logging
 from flask import Flask, g
-from .blueprints.users import users
+from .blueprints.users import users, users_api
 
 def create_app():
     '''
@@ -25,6 +25,8 @@ def create_app():
 
     # register blueprint
     app.register_blueprint(users)
+    app.register_blueprint(users_api)
+
     # init database
     register_teardowns(app)
 

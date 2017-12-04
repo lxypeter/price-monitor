@@ -19,12 +19,42 @@ window.onload = function () {
     var form = new Vue({
         el: '#register-form',
         data: {
+            username: '',
+            email: '',
+            password: '',
+            password2: '',
             errorMsg: '',
         },
         computed: {
             showError: function() {
-                return this.errorMsg != null && this.errorMsg.trim() != ''
+                return this.errorMsg != null && this.errorMsg.trim() != '';
             }
+        },
+        methods: {
+            verifyInput: function() {
+                let result = VerifyUtil.username(this.username)||VerifyUtil.email(this.email)||VerifyUtil.password(this.password)||VerifyUtil.comparePassword(this.password, this.password2);
+                if (result) { 
+                    this.errorMsg = result;
+                    return false;
+                } else {
+                    this.errorMsg = '';
+                    return true;
+                }
+            },
+            submit: function() {
+                if (!this.verifyInput()) { return; }
+                const data = {
+                    'username': this.username,
+                    'email': this.email,
+                    'password': this.password,
+                };
+                axios.post('/api/register', data).then(function(response) {
+                    
+                }).catch(function(error){
+                    debugger
+                    alert(error)
+                });
+            },
         }
     })
 }
@@ -39,34 +69,34 @@ window.onload = function () {
             <li><a href="/login">登陆</a></li>
             <li class="uk-active"><a>注册</a></li>
         </ul>
-        <form id="register-form" class="uk-form-horizontal uk-margin-large">
+        <form id="register-form" v-on:submit="submit" class="uk-form-horizontal uk-margin-large" onsubmit="return false">
             <div class="uk-alert uk-alert-danger" v-show="showError">{{errorMsg}}</div>
             <div class="uk-margin">
                 <label class="uk-form-label form-label" >用户名</label>
                 <div class="uk-form-controls">
-                    <input class="uk-input" type="text" placeholder="">
+                    <input v-model="username" class="uk-input" type="text" placeholder="由6-16位数字、字母或下划线组成">
                 </div>
             </div>
             <div class="uk-margin">
                 <label class="uk-form-label form-label" >电子邮箱</label>
                 <div class="uk-form-controls">
-                    <input class="uk-input" type="text" placeholder="">
+                    <input v-model="email" class="uk-input" type="text" placeholder="请输入有效电子邮箱">
                 </div>
             </div>
             <div class="uk-margin">
                 <label class="uk-form-label form-label" >密码</label>
                 <div class="uk-form-controls">
-                    <input class="uk-input" type="password" placeholder="请输入6-16位密码">
+                    <input v-model="password" class="uk-input" type="password" placeholder="请输入6-16位密码">
                 </div>
             </div>
             <div class="uk-margin">
                 <label class="uk-form-label form-label" >再次输入密码</label>
                 <div class="uk-form-controls">
-                    <input class="uk-input" type="password" placeholder="">
+                    <input v-model="password2" class="uk-input" type="password" placeholder="请再次输入6-16位密码">
                 </div>
             </div>
             <div class="uk-margin">
-                <button class="uk-button uk-button-default uk-width-1-1">注册</button>
+                <button type="submit" class="uk-button uk-button-default uk-width-1-1">注册</button>
             </div>
         </form>
     </div>
