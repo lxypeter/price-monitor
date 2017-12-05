@@ -24,6 +24,7 @@ window.onload = function () {
             password: '',
             password2: '',
             errorMsg: '',
+            token: '',
         },
         computed: {
             showError: function() {
@@ -48,7 +49,7 @@ window.onload = function () {
                     'email': this.email,
                     'password': this.password,
                 };
-                axios.post('/api/register', data).then(function(response) {
+                SignFetch.post('/api/register', data, this.$refs.token.value).then(function(response) {
                     
                 }).catch(function(error){
                     debugger
@@ -70,6 +71,7 @@ window.onload = function () {
             <li class="uk-active"><a>注册</a></li>
         </ul>
         <form id="register-form" v-on:submit="submit" class="uk-form-horizontal uk-margin-large" onsubmit="return false">
+            <input ref="token" type="hidden" value="{[token]}">
             <div class="uk-alert uk-alert-danger" v-show="showError">{{errorMsg}}</div>
             <div class="uk-margin">
                 <label class="uk-form-label form-label" >用户名</label>
