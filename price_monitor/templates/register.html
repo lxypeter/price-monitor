@@ -44,16 +44,18 @@ window.onload = function () {
             },
             submit: function() {
                 if (!this.verifyInput()) { return; }
+                var encrypt = new JSEncrypt();
+                encrypt.setPublicKey(this.$refs.publicKey.value);
+                var encryptedPassword = encrypt.encrypt(this.password);
                 const data = {
                     'username': this.username,
                     'email': this.email,
-                    'password': this.password,
+                    'password': encryptedPassword,
                 };
                 SignFetch.post('/api/register', data, this.$refs.token.value).then(function(response) {
-                    
+                    console.log(response)
                 }).catch(function(error){
-                    debugger
-                    alert(error)
+                    console.error(error)
                 });
             },
         }
@@ -72,6 +74,7 @@ window.onload = function () {
         </ul>
         <form id="register-form" v-on:submit="submit" class="uk-form-horizontal uk-margin-large" onsubmit="return false">
             <input ref="token" type="hidden" value="{[token]}">
+            <input ref="publicKey" type="hidden" value="{[public_key]}">
             <div class="uk-alert uk-alert-danger" v-show="showError">{{errorMsg}}</div>
             <div class="uk-margin">
                 <label class="uk-form-label form-label" >用户名</label>
