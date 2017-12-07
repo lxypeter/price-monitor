@@ -10,8 +10,9 @@ import logging
 from io import StringIO
 import hashlib
 from datetime import datetime
-from flask import Flask, g, request, make_response
+from flask import Flask, g, request, make_response, session
 from .blueprints.users import users
+from .util.encrypt_util import rsa_create_keys
 
 def create_app():
     '''
@@ -22,6 +23,11 @@ def create_app():
     app = Flask(__name__, instance_relative_config=True)
     app.config.from_object('config')
     app.config.from_pyfile('config.py')
+    keys = rsa_create_keys()
+    app.config.update({
+        'RSA_PUBLIC_KEY': keys[1],
+        'RSA_PRIVATE_KEY': keys[0],
+    })
 
     app.jinja_env.variable_start_string = '{['
     app.jinja_env.variable_end_string = ']}'
@@ -37,6 +43,10 @@ def create_app():
         '''
         if request.path.startswith('/api'):
             return verify_sign(app)
+
+    @app.context_processor
+    def inject_user():
+        return dict(user=session.get('user', None))
 
     # init database
     register_teardowns(app)
@@ -54,6 +64,7 @@ def register_teardowns(app):
         close database connection
         '''
         if hasattr(g, 'sql_db'):
+            logging.info('close the database connection')
             g.sql_db.close()
 
 def verify_sign(app):

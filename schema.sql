@@ -12,9 +12,9 @@ create table user (
     `nickname` varchar(50) not null,
     `gender` char(1) not null,
     `image` varchar(500),
-    `create_time` real not null,
+    `create_time` datetime not null,
     unique key `idx_email` (`email`),
-    key `idx_create_time` (`create_time`),
+    unique key `idx_username` (`username`),
     primary key (`id`)
 ) engine=innodb default charset=utf8;
 
@@ -27,8 +27,7 @@ create table item (
     `image_url` varchar(200) not null,
     `shop_name` varchar(200) not null,
     `state` varchar(50) not null,
-    `create_time` real not null,
-    key `idx_create_time` (`create_time`),
+    `create_time` datetime not null,
     primary key (`id`)
 ) engine=innodb default charset=utf8;
 
@@ -38,8 +37,7 @@ create table item_price (
     `name` varchar(50) not null,
     `pvs` varchar(100) not null,
     `stock` int not null,
-    `updated_time` real not null,
-    key `idx_updated_time` (`updated_time`),
+    `updated_time` datetime not null,
     primary key (`id`)
 ) engine=innodb default charset=utf8;
 

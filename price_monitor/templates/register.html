@@ -1,6 +1,6 @@
 {% extends '__base__.html' %}
 
-{% block title %}注册{% endblock %}
+{% block title %}注册 - 等价{% endblock %}
 
 {% block html_attr %}style="height: 100%"{% endblock %}
 {% block body_attr %}style="height: 100%"{% endblock %}
@@ -24,7 +24,6 @@ window.onload = function () {
             password: '',
             password2: '',
             errorMsg: '',
-            token: '',
         },
         computed: {
             showError: function() {
@@ -53,9 +52,13 @@ window.onload = function () {
                     'password': encryptedPassword,
                 };
                 SignFetch.post('/api/register', data, this.$refs.token.value).then(function(response) {
-                    console.log(response)
+                    if (response.data.result_code != 0) {
+                        form.errorMsg = response.data.msg;
+                    } else {
+                        window.location = '/'
+                    }
                 }).catch(function(error){
-                    console.error(error)
+                    form.errorMsg = '服务器异常';
                 });
             },
         }

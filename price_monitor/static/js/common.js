@@ -32,7 +32,16 @@ VerifyUtil = {
         } else {
             return null;
         }
-    }
+    },
+    account: function(str) {
+        let re = /^[0-9a-zA-Z\_\@\.]{6,200}$/
+        let result = re.exec(str)
+        if (!result) {
+            return '请输入有效的账号或电子邮箱';
+        } else {
+            return null;
+        }
+    },
 };
 
 DateUtil = {

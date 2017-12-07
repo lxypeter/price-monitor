@@ -1,18 +1,59 @@
 {% extends '__base__.html' %}
 
-{% block title %}登陆{% endblock %}
+{% block title %}登陆 - 等价{% endblock %}
 
 {% block html_attr %}style="height: 100%"{% endblock %}
 {% block body_attr %}style="height: 100%"{% endblock %}
 
 {% block beforehead %}
-
 <script>
-$(function () {
-    alert(1);
-});
+window.onload = function () {
+    var form = new Vue({
+        el: '#login-form',
+        data: {
+            account: '',
+            password: '',
+            errorMsg: '',
+        },
+        computed: {
+            showError: function() {
+                return this.errorMsg != null && this.errorMsg.trim() != '';
+            }
+        },
+        methods: {
+            verifyInput: function() {
+                let result = VerifyUtil.account(this.account);
+                if (result) { 
+                    this.errorMsg = result;
+                    return false;
+                } else {
+                    this.errorMsg = '';
+                    return true;
+                }
+            },
+            submit: function() {
+                if (!this.verifyInput()) { return; }
+                var encrypt = new JSEncrypt();
+                encrypt.setPublicKey(this.$refs.publicKey.value);
+                var encryptedPassword = encrypt.encrypt(this.password);
+                const data = {
+                    'account': this.account,
+                    'password': encryptedPassword,
+                };
+                SignFetch.post('/api/login', data, this.$refs.token.value).then(function(response) {
+                    if (response.data.result_code != 0) {
+                        form.errorMsg = response.data.msg;
+                    } else {
+                        window.location = '/'
+                    }
+                }).catch(function(error){
+                    form.errorMsg = '服务器异常';
+                });
+            },
+        }
+    })
+}
 </script>
-
 {% endblock %}
 
 {% block body %}
@@ -23,22 +64,25 @@ $(function () {
             <li class="uk-active"><a>登陆</a></li>
             <li><a href="/register">注册</a></li>
         </ul>
-        <form>
+        <form id="login-form" v-on:submit="submit" onsubmit="return false">
+            <input ref="token" type="hidden" value="{[token]}">
+            <input ref="publicKey" type="hidden" value="{[public_key]}">
+            <div class="uk-alert uk-alert-danger" v-show="showError">{{errorMsg}}</div>
             <fieldset class="uk-fieldset">
                 <div class="uk-margin">
                     <div class="uk-inline uk-flex">
-                        <span class="uk-form-icon" uk-icon="icon: user"></span>
-                        <input class="uk-input" type="text" placeholder="用户名">
+                        <span class="uk-form-icon" :uk-icon="'icon: user'"></span>
+                        <input v-model='account' class="uk-input" type="text" placeholder="用户名或邮箱">
                     </div>
                 </div>
                 <div class="uk-margin">
                     <div class="uk-inline uk-flex" >
-                        <span class="uk-form-icon" uk-icon="icon: lock"></span>
-                        <input class="uk-input" type="password" placeholder="密码">
+                        <span class="uk-form-icon" :uk-icon="'icon: lock'"></span>
+                        <input v-model='password' class="uk-input" type="password" placeholder="密码">
                     </div>
                 </div>
                 <div class="uk-margin">
-                    <button class="uk-button uk-button-default uk-width-1-1">登陆</button>
+                    <button type="submit" class="uk-button uk-button-default uk-width-1-1">登陆</button>
                 </div>
             </fieldset>
         </form>

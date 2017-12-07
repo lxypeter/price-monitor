@@ -1,43 +1,35 @@
-<!DOCTYPE html>
-<html>
-    <head>
-        <title>Title</title>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <link rel="stylesheet" href="/static/css/uikit.min.css" />
-        <script src="/static/js/uikit.min.js"></script>
-        <script src="/static/js/uikit-icons.min.js"></script>
-    </head>
-    <body>
-        <nav class="uk-navbar-container" uk-navbar>
-            <div class="uk-navbar-left">
-                <ul class="uk-navbar-nav">
-                    <a class="uk-navbar-item uk-logo" href="#">等价</a>
-                    <li class="uk-active"><a href="#">Active</a></li>
-                    <li>
-                        <a href="#">Parent</a>
-                        <div class="uk-navbar-dropdown">
-                            <ul class="uk-nav uk-navbar-dropdown-nav">
-                                <li class="uk-active"><a href="#">Active</a></li>
-                                <li><a href="#">Item</a></li>
-                                <li><a href="#">Item</a></li>
-                            </ul>
-                        </div>
-                    </li>
-                    <li><a href="#">Item</a></li>
-                </ul>
-            </div>
-            <div class="uk-navbar-right">
-                <a href="#">
-                    <span class="uk-icon uk-navbar-toggle" uk-icon="icon: cog" />
-                </a>
-                <a href="#">
-                    <span class="uk-icon uk-navbar-toggle" uk-icon="icon: sign-in" />
-                </a>
-                <a href="#">
-                    <span class="uk-icon uk-navbar-toggle" uk-icon="icon: sign-out" />
-                </a>
-            </div>
-        </nav>
-    </body>
-</html>
+{% extends '__index_nav__.html' %}
+
+{% block title %}等价 - 等一个好价{% endblock %}
+
+{% block beforehead %}
+{% endblock %}
+
+{% block content %}
+<div class="uk-flex uk-heading-divider">
+    <h3 class="uk-heading-bullet" style="flex: 1; margin-bottom: 0px">已添加商品</h3>
+    <a href="javascript:void(0)" uk-icon="icon: plus; ratio: 1.5" uk-toggle="target: #modal-close-default"></a>
+</div>
+<div class="uk-grid" style="padding-top: 20px">
+    <div>
+        <div class="uk-card uk-card-default uk-card-hover uk-card-body">
+            <h3 class="uk-card-title">Default</h3>
+            <p>Lorem ipsum dolor sit amet, consectetur adipisicing elit.</p>
+        </div>
+    </div>
+</div>
+
+<div id="modal-close-default" uk-modal>
+    <div class="uk-modal-dialog uk-modal-body">
+        <button class="uk-modal-close-default" type="button" uk-close></button>
+        <h2 class="uk-modal-title">请输入商品链接</h2>
+        <div class="uk-margin">
+            <textarea class="uk-textarea" rows="5" style="resize: none"></textarea>
+        </div>
+        <div class="uk-modal-footer uk-text-right">
+            <button class="uk-button uk-button-default uk-width-1-3 uk-modal-close">取消</button>
+            <button class="uk-button uk-button-primary uk-width-1-3">确定</button>
+        </div>
+    </div>
+</div>
+{% endblock %}

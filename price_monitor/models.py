@@ -49,6 +49,17 @@ class ResultCode(Enum):
     '''
     Success = 0
     Invalid_Input = -1
+    Repetitive_Record = -2
+    Insert_Error = -3
+
+@unique
+class Gender(Enum):
+    '''
+    enum of gender
+    '''
+    Male = 0
+    Female = 1
+    Unknown = 2
 
 class ResponseBody(object):
     '''
