@@ -12,6 +12,7 @@ import hashlib
 from datetime import datetime
 from flask import Flask, g, request, make_response, session
 from .blueprints.users import users
+from .blueprints.items import items_api
 from .util.encrypt_util import rsa_create_keys
 
 def create_app():
@@ -34,6 +35,7 @@ def create_app():
 
     # register blueprint
     app.register_blueprint(users)
+    app.register_blueprint(items_api)
 
     # register request filter
     @app.before_request
@@ -83,7 +85,7 @@ def verify_sign(app):
     str_io = StringIO()
     token = app.config['UNLOGINED_TOKEN']
     if request.path.startswith('/api/sign'):
-        token = app.config['LOGINED_TOKEN']
+        token = session['user']['token'].decode()
     str_io.write(token)
     for key in keys:
         str_io.write(key)

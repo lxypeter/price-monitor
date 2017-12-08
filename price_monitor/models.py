@@ -61,6 +61,14 @@ class Gender(Enum):
     Female = 1
     Unknown = 2
 
+@unique
+class MerchantType(Enum):
+    '''
+    enum of merchant type
+    '''
+    Taobao = 'T'
+    Tmall = 'TM'
+
 class ResponseBody(object):
     '''
     standard response struct

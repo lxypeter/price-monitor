@@ -4,7 +4,6 @@
 user section
 '''
 
-import logging
 import os
 import hashlib
 import base64
@@ -21,7 +20,10 @@ def index():
     '''
     index page
     '''
-    return render_template('index.html')
+    user = session.get('user', None)
+    if not user:
+        return redirect(url_for('users.login'))
+    return render_template('index.html', token=user['token'])
 
 @users.route('/register', methods=['GET'])
 def register():
@@ -47,7 +49,7 @@ def logout():
     logout and redirect to index
     '''
     session.pop('user', None)
-    return redirect(url_for('users.index'))
+    return redirect(url_for('users.login'))
 
 @users.route('/api/register', methods=['POST'])
 def api_register():
