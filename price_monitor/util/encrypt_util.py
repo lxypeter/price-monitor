@@ -5,7 +5,8 @@ encrypt and descrypt util
 '''
 
 import logging
-
+import hashlib
+from datetime import datetime
 from flask import current_app
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_v1_5
@@ -37,3 +38,13 @@ def rsa_decrypt(origin_str, key):
     cipher_rsa_decrypt = PKCS1_v1_5.new(private_key)
     message = cipher_rsa_decrypt.decrypt(origin_str, b'')
     return message
+
+def gen_token(username):
+    '''
+    generate login token
+    '''
+    timestamp = datetime.now().timestamp()
+    token = username + str(timestamp)
+    md5 = hashlib.md5()
+    md5.update(token.encode('utf-8'))
+    return md5.hexdigest()

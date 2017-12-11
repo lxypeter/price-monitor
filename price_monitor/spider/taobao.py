@@ -33,21 +33,26 @@ def fetch_item_url(url, **kw):
     爬取商品
     '''
     item = dict()
+    item['url'] = url
     # 是否天猫
     is_tmall = kw.get('is_tmall', None)
     if is_tmall is None:
         if url.find('tmall') > 0:
             is_tmall = True
-            item['type'] = MerchantType.Tmall.value
         else:
             is_tmall = False
-            item['type'] = MerchantType.Taobao.value
+            
+    if is_tmall:
+        item['mall_type'] = MerchantType.Tmall.value
+    else:
+        item['mall_type'] = MerchantType.Taobao.value
 
     # 解析url参数
     parse_result = parse.urlparse(url)
     url_params = parse.parse_qs(parse_result.query)
     try:
         item_id = url_params.get('id', [None])[0]
+        item['item_id'] = item_id
     except IndexError:
         raise ItemUrlError(url=url, message='url格式不正确，缺失商品id')
 
@@ -103,10 +108,13 @@ def fetch_item_url(url, **kw):
 
             ul_tag = tag.find('ul', class_=re.compile(r'(J_TSaleProp|tm-clear)(.*)'))
             li_tags = ul_tag.find_all('li')
-            for li_tag in li_tags:
+            for index, li_tag in enumerate(li_tags):
+                pvs = li_tag.get('data-value', '')
+                if index == 0:
+                    sku_group['group_id'] = pvs.split(':')[0]
                 sku_pv = {}
                 sku_pv['name'] = li_tag.find('span').text.strip()
-                sku_pv['pv'] = li_tag.get('data-value', '')
+                sku_pv['pvs'] = pvs
                 sku_pvs.append(sku_pv)
                 sku_dict[li_tag.get('data-value', '')] = li_tag.find('span').text.strip()
             sku_group['pvs'] = sku_pvs
@@ -163,7 +171,7 @@ def fetch_item_url(url, **kw):
                     sku_keys = sku_pvs.split(';')
                     for sku_key in sku_keys:
                         sku_desc.append(sku_dict.get(sku_key, ''))
-                    sku_info['names'] = ' '.join(sku_desc)
+                    sku_info['name'] = ' '.join(sku_desc)
 
                 sku_info.update(stock_dict.get(key, {}))
                 stock_info.append(sku_info)
@@ -175,7 +183,7 @@ def fetch_item_url(url, **kw):
                 if key == info.get('pvs', '') and value[0].get('price', None) != None:
                     info['price'] = value[0].get('price', None)
         item['stock_info'] = stock_info
-
+        print(item)
     except Exception as error:
         raise error
     return item

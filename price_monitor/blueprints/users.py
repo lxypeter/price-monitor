@@ -11,21 +11,12 @@ from datetime import datetime
 from flask import Blueprint, render_template, request, current_app, jsonify, session, redirect, url_for
 from price_monitor.models import get_db, next_id, ResponseBody, ResultCode, Gender
 from price_monitor.util.verify_util import verify_email, verify_password, verify_username
-from price_monitor.util.encrypt_util import rsa_get_public_key, rsa_get_private_key, rsa_decrypt
+from price_monitor.util.encrypt_util import rsa_get_public_key, rsa_get_private_key, rsa_decrypt, gen_token
 
-users = Blueprint('users', __name__)
+bp_users = Blueprint('users', __name__)
+bp_users_api = Blueprint('users_api', __name__, url_prefix='/api')
 
-@users.route('/')
-def index():
-    '''
-    index page
-    '''
-    user = session.get('user', None)
-    if not user:
-        return redirect(url_for('users.login'))
-    return render_template('index.html', token=user['token'])
-
-@users.route('/register', methods=['GET'])
+@bp_users.route('/register', methods=['GET'])
 def register():
     '''
     register page
@@ -34,7 +25,7 @@ def register():
                            token=current_app.config['UNLOGINED_TOKEN'],
                            public_key=rsa_get_public_key().decode())
 
-@users.route('/login', methods=['GET'])
+@bp_users.route('/login', methods=['GET'])
 def login():
     '''
     login page
@@ -43,7 +34,7 @@ def login():
                            token=current_app.config['UNLOGINED_TOKEN'],
                            public_key=rsa_get_public_key().decode())
 
-@users.route('/logout')
+@bp_users.route('/logout')
 def logout():
     '''
     logout and redirect to index
@@ -51,7 +42,7 @@ def logout():
     session.pop('user', None)
     return redirect(url_for('users.login'))
 
-@users.route('/api/register', methods=['POST'])
+@bp_users_api.route('/register', methods=['POST'])
 def api_register():
     '''
     register api
@@ -70,6 +61,7 @@ def api_register():
         return jsonify(resp.to_dict())
 
     connection = get_db()
+    user_id = next_id()
     # check if username or email exist
     with connection.cursor() as cursor:
         query_sql = 'select id, username, email from user where username=%s or email=%s'
@@ -93,17 +85,18 @@ def api_register():
         md5 = hashlib.md5()
         md5.update(hash_password.encode('utf-8'))
         password = md5.hexdigest()
-        cursor.execute(sql, (next_id(), username, email, password,
+        cursor.execute(sql, (user_id, username, email, password,
                              username, Gender.Unknown.value, datetime.now()))
         if cursor.rowcount < 1:
             resp.result_code = ResultCode.Insert_Error
             resp.msg = '注册失败'
             return jsonify(resp.to_dict())
     connection.commit()
-    session['user'] = {'username':username, 'email':email, 'token': os.urandom(24)}
+    token = gen_token(username)
+    session['user'] = {'user_id': user_id, 'username': username, 'email': email, 'token': token}
     return jsonify(resp.to_dict())
 
-@users.route('/api/login', methods=['POST'])
+@bp_users_api.route('/login', methods=['POST'])
 def api_login():
     '''
     login api
@@ -117,11 +110,12 @@ def api_login():
     connection = get_db()
     # query user
     with connection.cursor() as cursor:
-        query_sql = 'select username, email, password from user where username=%s or email=%s'
+        query_sql = 'select id, username, email, password from user where username=%s or email=%s'
         cursor.execute(query_sql, (account, account))
         values = cursor.fetchall()
         if values:
             user = values[0]
+            user_id = user.get('id', '')
             username = user.get('username', '')
             email = user.get('email', '')
             password = user.get('password', '')
@@ -130,7 +124,8 @@ def api_login():
             md5 = hashlib.md5()
             md5.update(hash_password.encode('utf-8'))
             if password == md5.hexdigest():
-                session['user'] = {'username':username, 'email':email, 'token': os.urandom(24)}
+                token = gen_token(username)
+                session['user'] = {'user_id': user_id, 'username': username, 'email': email, 'token': token}
             else:
                 resp.result_code = ResultCode.Invalid_Input
                 resp.msg = '密码错误'

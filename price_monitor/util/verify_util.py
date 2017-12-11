@@ -26,3 +26,12 @@ def verify_email(email):
     '''
     if not re.match(r'^[a-z_0-9.-]{1,64}@([a-z0-9-]{1,200}.){1,5}[a-z]{1,6}$', email):
         return '请输入有效的电子邮箱'
+
+def contain_empty_str(str_list):
+    '''
+    check empty str
+    '''
+    for v_str in str_list:
+        if v_str.strip() == "":
+            return True
+    return False

@@ -69,6 +69,14 @@ class MerchantType(Enum):
     Taobao = 'T'
     Tmall = 'TM'
 
+@unique
+class ItemState(Enum):
+    '''
+    enum of item state
+    '''
+    Valid = '00'
+    Invalid = '01'
+
 class ResponseBody(object):
     '''
     standard response struct

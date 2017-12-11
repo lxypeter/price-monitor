@@ -22,18 +22,19 @@ create table item (
     `id` varchar(50) not null,
     `mall_type` varchar(50) not null,
     `item_id` varchar(50) not null,
-    `name` varchar(50) not null,
+    `name` varchar(200) not null,
     `url` varchar(200) not null,
     `image_url` varchar(200) not null,
     `shop_name` varchar(200) not null,
     `state` varchar(50) not null,
+    `send_city` varchar(50) not null,
     `create_time` datetime not null,
     primary key (`id`)
 ) engine=innodb default charset=utf8;
 
 create table item_price (
     `id` varchar(50) not null,
-    `item_id` varchar(50) not null,
+    `item_p_id` varchar(50) not null,
     `name` varchar(50) not null,
     `pvs` varchar(100) not null,
     `stock` int not null,
@@ -41,10 +42,16 @@ create table item_price (
     primary key (`id`)
 ) engine=innodb default charset=utf8;
 
-create table item_pv (
+create table item_pvs (
     `id` varchar(50) not null,
-    `item_id` varchar(50) not null,
+    `item_p_id` varchar(50) not null,
+    `group_id` varchar(50) not null,
     `name` varchar(50) not null,
-    `pv` varchar(50) not null,
+    `pvs` varchar(50) not null,
     primary key (`id`)
+) engine=innodb default charset=utf8;
+
+create table user_item (
+    `user_id` varchar(50) not null,
+    `item_p_id` varchar(50) not null
 ) engine=innodb default charset=utf8;
