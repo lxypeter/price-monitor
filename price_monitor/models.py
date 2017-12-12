@@ -51,6 +51,8 @@ class ResultCode(Enum):
     Invalid_Input = -1
     Repetitive_Record = -2
     Insert_Error = -3
+    Update_Error = -4
+    Delete_Error = -5
 
 @unique
 class Gender(Enum):

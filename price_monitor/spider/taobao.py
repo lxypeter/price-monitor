@@ -84,6 +84,8 @@ def fetch_item_url(url, **kw):
     shop_name_tag = item_soup.find(['a', 'div'], class_=re.compile(r'slogo-shopname|shop-name-link|tb-shop-name'))
     if shop_name_tag:
         shop_name = ''.join(shop_name_tag.stripped_strings)
+    if url.find('chaoshi') > 0 and url.find('tmall') > 0:
+        shop_name = '天猫超市'
     item['shop_name'] = shop_name
 
     # 价格
@@ -183,7 +185,6 @@ def fetch_item_url(url, **kw):
                 if key == info.get('pvs', '') and value[0].get('price', None) != None:
                     info['price'] = value[0].get('price', None)
         item['stock_info'] = stock_info
-        print(item)
     except Exception as error:
         raise error
     return item

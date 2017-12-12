@@ -27,6 +27,7 @@ create table item (
     `image_url` varchar(200) not null,
     `shop_name` varchar(200) not null,
     `state` varchar(50) not null,
+    `monitor_num` int not null,
     `send_city` varchar(50) not null,
     `create_time` datetime not null,
     primary key (`id`)
@@ -37,6 +38,7 @@ create table item_price (
     `item_p_id` varchar(50) not null,
     `name` varchar(50) not null,
     `pvs` varchar(100) not null,
+    `price` varchar(50) not null,
     `stock` int not null,
     `updated_time` datetime not null,
     primary key (`id`)

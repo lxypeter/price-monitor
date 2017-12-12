@@ -3,72 +3,56 @@
 {% block title %}等价 - 等一个好价{% endblock %}
 
 {% block beforehead %}
-<script>
-window.onload = function() {
-    var modal = new Vue({
-        el: '#modal-group',
-        data: {
-            url: '',
-            isLoading: false,
-            item: {},
-            errorMsg: '',
-        },
-        methods: {
-            confirmUrl: function() {
-                this.isLoading = true;
-                const data = {
-                    'url': this.url,
-                };
-                SignFetch.post('/api/sign/url/analysis', data, this.$refs.token.value).then(function(response) {
-                    modal.isLoading = false;
-                    if (response.data.result_code == 0) {
-                        modal.item = response.data.data;
-                    }
-                }).catch(function(error){
-                    modal.isLoading = false;
-                    modal.errorMsg = '服务器异常';
-                });
-            },
-            submitItem: function() {
-                SignFetch.post('/api/sign/item/store', this.item, this.$refs.token.value).then(function(response) {
-                    // modal.isLoading = false;
-                    alert(response.data.msg)
-                    // if (response.data.result_code == 0) {
-                    //     alert(response.data.msg)
-                    // }
-                }).catch(function(error){
-                    modal.isLoading = false;
-                    modal.errorMsg = '服务器异常';
-                });
-            },
-            multiSku: function(item) {
-                if (Object.keys(item).length <= 0) { return false; }
-                if (item.stock_info.length > 1) {
-                    return true;
-                }
-                return false;
-            },
-        },
-        filters: {
-            showingPrice: function(item) {
-                if (Object.keys(item).length <= 0) { return; }
-                price = item.price;
-                if (item.stock_info.length > 0) {
-                    item.stock_info.forEach(function(info) {
-                        if (info['pvs'] == 'def') {
-                            price = info['price'];
-                        }
-                    });
-                    if (parseFloat(price) == 0) {
-                        price = item.stock_info[0]['price'];
-                    }
-                }
-                return price;
-            },
-        },
-    });
+<style type="text/css">
+.item-card-container {
+    display: flex;
+    flex-wrap: wrap;
+    width: 1100;
 }
-</script>
+.item-card {
+    width: 200px;
+    height: 305px;
+    padding: 0px;
+    margin-right: 20px;
+}
+.item-card:hover .item-close  {
+    visibility: visible;
+}
+.item-card .item-close {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    visibility: hidden;
+}
+.item-card .item-image {
+    width: 200px;
+    height: 200px;
+}
+.item-card .price-text {
+    font-size: 16px;
+    font-weight: 700;
+    color: #3d3d3d;
+    text-decoration: none;
+}
+.item-card .name-text {
+    height: 38px;
+    font-size: 12px;
+    font-weight: 400;
+    color: #3d3d3d;
+    text-decoration: none;
+    overflow: hidden;
+}
+.item-card .buttom-text {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+    font-weight: 400;
+    color: #3d3d3d;
+    text-decoration: none;
+}
+</style>
+<script src="/static/js/index.js"></script>
 {% endblock %}
 
 {% block content %}
@@ -76,62 +60,83 @@ window.onload = function() {
     <h3 class="uk-heading-bullet" style="flex: 1; margin-bottom: 0px">已添加商品</h3>
     <a href="javascript:void(0)" uk-icon="icon: plus; ratio: 1.5" uk-toggle="target: #modal-group-1"></a>
 </div>
-<div class="uk-grid" style="padding-top: 20px">
-    <div>
-        <div class="uk-card uk-card-default uk-card-hover uk-card-body">
-            <h3 class="uk-card-title">Default</h3>
-            <p>Lorem ipsum dolor sit amet, consectetur adipisicing elit.</p>
+<div id="item_list" style="padding-top: 20px">
+    <input ref="token" type="hidden" value="{[token]}">
+    <div class="item-card-container">
+        <div v-for="item in items" class="uk-card uk-card-default uk-card-hover uk-card-body item-card">
+            <a class="item-close" href="javascript: void(0)" :uk-close="'uk-close'"></a>
+            <a style="text-decoration: none; cursor: pointer" href="javascript: void(0)">
+                <img class="item-image" v-bind:src="item.image_url"/>
+                <div style="padding: 10px">
+                    <div class="price-text">
+                        ¥{{ item | showingPrice }}
+                    </div>
+                    <div class="name-text">{{ item.name }}</div>
+                    <div class="buttom-text">
+                        <span>
+                            <span v-bind:style="item.mall_type | mallImage" class="uk-icon uk-icon-image"></span>
+                            {{ item.shop_name }}
+                        </span>
+                        <span>{{ item.send_city }}</span>
+                    </div>
+                </div>
+            </a>
         </div>
     </div>
 </div>
 
 <div id="modal-group">
-<input ref="token" type="hidden" value="{[token]}">
-<div id="modal-group-1" uk-modal>
-    <div class="uk-modal-dialog">
-        <button class="uk-modal-close-default" type="button" :uk-close="'uk-close'"></button>
-        <div class="uk-modal-header">
-            <h2 class="uk-modal-title">请输入商品链接</h2>
-        </div>
-        <div class="uk-modal-body">
-            <textarea class="uk-textarea" rows="5" v-model='url' style="resize: none"></textarea>
-        </div>
-        <div class="uk-modal-footer uk-text-right">
-            <button class="uk-button uk-button-default uk-modal-close" type="button">取消</button>
-            <a href="#modal-group-2" v-on:click="confirmUrl" class="uk-button uk-button-primary" uk-toggle>确定</a>
+    <input ref="token" type="hidden" value="{[token]}">
+    <div id="modal-group-1" uk-modal>
+        <div class="uk-modal-dialog">
+            <button class="uk-modal-close-default" type="button" :uk-close="'uk-close'"></button>
+            <div class="uk-modal-header">
+                <h2 class="uk-modal-title">请输入商品链接</h2>
+            </div>
+            <div class="uk-modal-body">
+                <textarea class="uk-textarea" rows="5" v-model='url' style="resize: none"></textarea>
+            </div>
+            <div class="uk-modal-footer uk-text-right">
+                <button class="uk-button uk-button-default uk-modal-close" type="button">取消</button>
+                <a href="#modal-group-2" v-on:click="confirmUrl" class="uk-button uk-button-primary" uk-toggle>确定</a>
+            </div>
         </div>
     </div>
-</div>
-<div id="modal-group-2" uk-modal>
-    <div class="uk-modal-dialog">
-        <button class="uk-modal-close-default" type="button" :uk-close="'uk-close'"></button>
-        <div class="uk-modal-header">
-            <h2 class="uk-modal-title">商品信息</h2>
-        </div>
-        <div class="uk-modal-body uk-flex" style="justify-content: center; align-items: center">
-            <div v-show='isLoading' class="uk-spinner uk-icon" style="align-content: center;">
-                <svg width="30" height="30" viewBox="0 0 30 30" xmlns="http://www.w3.org/2000/svg" ratio="2">
-                    <circle fill="none" stroke="#000" cx="15" cy="15" r="14"></circle>
-                </svg>
+    <div id="modal-group-2" uk-modal>
+        <div class="uk-modal-dialog">
+            <button class="uk-modal-close-default" type="button" :uk-close="'uk-close'"></button>
+            <div class="uk-modal-header">
+                <h2 class="uk-modal-title">商品信息</h2>
             </div>
-            <div class="uk-flex" v-show='!isLoading'>
-                <img v-bind:src="item.item_image" style="width: 200px; height: 200px;" />
-                <div style="flex-direction: column; margin-left: 20px">
-                    <p style="margin-bottom: 0px">{{item.item_name}}</p>
-                    <div style="font-family: verdana,arial; font-size: 26px; font-weight: 700;">
-                        ¥{{item | showingPrice}}
-                        <span v-show="multiSku(item)" class="uk-label uk-label-success">多种规格</span>
+            <div class="uk-modal-body uk-flex" style="justify-content: center; align-items: center">
+                <div v-show='isLoading' class="uk-spinner uk-icon" style="align-content: center;">
+                    <svg width="30" height="30" viewBox="0 0 30 30" xmlns="http://www.w3.org/2000/svg" ratio="2">
+                        <circle fill="none" stroke="#000" cx="15" cy="15" r="14"></circle>
+                    </svg>
+                </div>
+                <div v-show='!isLoading && !showError' class="uk-flex" >
+                    <img v-bind:src="item.item_image" style="width: 200px; height: 200px;" />
+                    <div style="flex-direction: column; margin-left: 20px">
+                        <p style="margin-bottom: 0px">{{item.item_name}}</p>
+                        <div style="font-family: verdana,arial; font-size: 26px; font-weight: 700;">
+                            ¥{{item | showingPrice}}
+                            <span v-show="multiSku" class="uk-label uk-label-success">多种规格</span>
+                        </div>
+                        <div style="font-size: 12px;">{{item.shop_name}}</div>
+                        <div style="font-size: 12px;">{{item.send_city}}</div>
                     </div>
-                    <div style="font-size: 12px;">{{item.shop_name}}</div>
-                    <div style="font-size: 12px;">{{item.send_city}}</div>
+                </div>
+                <div v-show='!isLoading && showError' class="uk-flex" >
+                    <div class="uk-alert-danger" uk-alert>
+                        <p>{{errorMsg}}</p>
+                    </div>
                 </div>
             </div>
-        </div>
-        <div class="uk-modal-footer uk-text-right">
-            <a href="#modal-group-1" class="uk-button uk-button-default uk-modal-close" uk-toggle>返回</a>
-            <button v-on:click="submitItem" class="uk-button uk-button-primary" >确定</button>
+            <div class="uk-modal-footer uk-text-right">
+                <a href="#modal-group-1" class="uk-button uk-button-default uk-modal-close" uk-toggle>返回</a>
+                <button v-on:click="submitItem" class="uk-button uk-button-primary" >确定</button>
+            </div>
         </div>
     </div>
-</div>
 </div>
 {% endblock %}

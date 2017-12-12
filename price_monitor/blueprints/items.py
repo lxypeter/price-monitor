@@ -33,23 +33,21 @@ def api_parse_url():
     resp = ResponseBody()
     # varify the params
     url = request.json.get('url', '').strip()
-    url_type = None
-    if url.find('tmall') > 0:
-        url_type = 'tmall'
-    elif url.find('taobao') > 0:
-        url_type = 'taobao'
-    else:
-        resp.result_code = ResultCode.Invalid_Input
-        resp.msg = '暂只支持淘宝或天猫链接'
-        return jsonify(resp.to_dict())
-
     try:
-        tb_result = taobao.fetch_item_url(url, is_tmall=url_type)
+        if url.find('tmall') > 0:
+            tb_result = taobao.fetch_item_url(url, is_tmall=True)
+            resp.data = tb_result
+        elif url.find('taobao') > 0:
+            tb_result = taobao.fetch_item_url(url, is_tmall=False)
+            resp.data = tb_result
+        else:
+            resp.result_code = ResultCode.Invalid_Input
+            resp.msg = '暂只支持淘宝或天猫链接'
+            return jsonify(resp.to_dict())
     except Exception as error:
         resp.result_code = ResultCode.Invalid_Input
         resp.msg = getattr(error, 'message', '链接无效，或数据解析出错')
 
-    resp.data = tb_result
     return jsonify(resp.to_dict())
 
 @bp_items_api.route('/sign/item/store', methods=['POST'])
@@ -76,16 +74,16 @@ def api_store_item():
     nowtime = datetime.now()
     connection = get_db()
     with connection.cursor() as cursor:
-        query_item_sql = 'select id from item where item_id=%s and mall_type=%s'
+        query_item_sql = 'select monitor_num from item where item_id=%s and mall_type=%s'
         cursor.execute(query_item_sql, (item_id, mall_type))
-        values = cursor.fetchall()
-        if not values:
+        items = cursor.fetchall()
+        if not items:
             try:
                 item_p_id = next_id()
                 item_sql = '''
                         insert into item
-                        (id, item_id, mall_type, url, name, image_url, shop_name, state, send_city, create_time)
-                        values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        (id, item_id, mall_type, url, name, image_url, shop_name, state, send_city, create_time, monitor_num)
+                        values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 1)
                         '''
                 item_sql_params = (item_p_id, item_id, mall_type, url, name,
                                    image_url, shop_name, ItemState.Valid.value,
@@ -104,14 +102,15 @@ def api_store_item():
                 for info in stock_info:
                     item_price_sql = '''
                                     insert into item_price
-                                    (id, item_p_id, name, pvs, stock, updated_time)
-                                    values (%s, %s, %s, %s, %s, %s)
+                                    (id, item_p_id, name, pvs, price, stock, updated_time)
+                                    values (%s, %s, %s, %s, %s, %s, %s)
                                     '''
                     info_name = info.get('name', '')
                     pvs = info.get('pvs', '')
                     stock = info.get('stock', '')
+                    price = info.get('price', '')
                     item_price_sql_params = (next_id(), item_p_id, info_name,
-                                             pvs, stock, nowtime)
+                                             pvs, price, stock, nowtime)
                     cursor.execute(item_price_sql, item_price_sql_params)
                     if cursor.rowcount < 1:
                         raise InsertError(item_price_sql, item_price_sql_params, '商品缓存失败')
@@ -155,19 +154,72 @@ def api_store_item():
                 resp.result_code = ResultCode.Insert_Error.value
                 resp.msg = '商品添加失败'
                 return jsonify(resp.to_dict())
+
+            if items:
+                item_monitor_sql = '''
+                                   update item set monitor_num = %s where id = %s
+                                   '''
+                cursor.execute(item_monitor_sql, (items[0]['monitor_num'] + 1, item_p_id))
+                if cursor.rowcount < 1:
+                    resp.result_code = ResultCode.Insert_Error.value
+                    resp.msg = '商品添加失败'
+                    return jsonify(resp.to_dict())
     connection.commit()
 
     return jsonify(resp.to_dict())
 
 @bp_items_api.route('/sign/item/list', methods=['POST'])
 def api_query_items():
+    '''
+    query registered items
+    '''
     resp = ResponseBody()
-    user = session.get('user', None)
+    resp.data = query_items()
+    return jsonify(resp.to_dict())
 
+@bp_items_api.route('/sign/item/disconnection', methods=['POST'])
+def api_disconnect_item():
+    '''
+    disconnect the item with user
+    '''
+    resp = ResponseBody()
+    item_p_id = request.json.get('id', '').strip()
+    user = session.get('user', None)
+    connection = get_db()
+    with connection.cursor() as cursor:
+        delete_connection_sql = 'delete from user_item where user_id=%s and item_p_id=%s'
+        cursor.execute(delete_connection_sql, (user.user_id, item_p_id))
+        if cursor.rowcount < 1:
+            resp.result_code = ResultCode.Delete_Error
+
+        query_item_sql = 'select monitor_num from item where id=%s'
+        cursor.execute(query_item_sql, (item_p_id,))
+        item = cursor.fetchall()[0]
+        if item.monitor_num > 1:
+            update_item_sql = 'update item set monitor_num = %s where id=%s'
+            cursor.execute(update_item_sql, (item.monitor_num - 1, item_p_id))
+            if cursor.rowcount < 1:
+                resp.result_code = ResultCode.Update_Error
+        else:
+            delete_item_sql = 'delete from item where id=%s'
+            cursor.execute(delete_item_sql, (item_p_id,))
+
+            delete_pvs_sql = 'delete from item_pvs where id=%s'
+            cursor.execute(delete_pvs_sql, (item_p_id,))
+
+            delete_price_sql = 'delete from item_price where id=%s'
+            cursor.execute(delete_price_sql, (item_p_id,))
+
+
+def query_items():
+    '''
+    query registered items
+    '''
+    user = session.get('user', None)
     connection = get_db()
     with connection.cursor() as cursor:
         query_item_sql = '''
-                         select b.id, b.mall_type, b.item_id, b.name, b.url, b.image_url
+                         select b.id, b.mall_type, b.item_id, b.name, b.url, b.image_url,
                          b.shop_name, b.send_city 
                          from user_item a left outer join item b on a.item_p_id = b.id
                          where a.user_id = %s
@@ -175,16 +227,14 @@ def api_query_items():
         cursor.execute(query_item_sql, (user['user_id'],))
         items = cursor.fetchall()
         if not items:
-            resp.data = []
-            return jsonify(resp.to_dict())
+            return []
         for item in items:
             item_p_id = item['id']
             query_price_sql = '''
-                              select name, pvs, stock, updated_time from item_price
+                              select name, pvs, price, stock, updated_time from item_price
                               where item_p_id = %s
                               '''
             cursor.execute(query_price_sql, (item_p_id,))
-            
-
-        
-    return jsonify(resp.to_dict())
+            prices = cursor.fetchall()
+            item['prices'] = prices
+        return items
