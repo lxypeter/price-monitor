@@ -64,7 +64,7 @@
     <input ref="token" type="hidden" value="{[token]}">
     <div class="item-card-container">
         <div v-for="item in items" class="uk-card uk-card-default uk-card-hover uk-card-body item-card">
-            <a class="item-close" href="javascript: void(0)" :uk-close="'uk-close'"></a>
+            <a v-on:click="disconnectItem(item)" class="item-close" href="javascript: void(0)" :uk-close="'uk-close'"></a>
             <a style="text-decoration: none; cursor: pointer" href="javascript: void(0)">
                 <img class="item-image" v-bind:src="item.image_url"/>
                 <div style="padding: 10px">

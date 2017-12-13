@@ -12,6 +12,8 @@ import hashlib
 from datetime import datetime
 import json
 from flask import Flask, g, request, make_response, session
+from apscheduler.schedulers.background import BackgroundScheduler
+from .models import connect_db
 from .blueprints.users import bp_users, bp_users_api
 from .blueprints.items import bp_items, bp_items_api
 from .util.encrypt_util import rsa_create_keys
@@ -35,42 +37,61 @@ def create_app():
     app.jinja_env.variable_end_string = ']}'
 
     # register blueprint
+    register_blueprints(app)
+
+    # register app lifetime events
+    register_app_lifetime_events(app)
+
+    # register scheduler
+    register_scheduler(app)
+
+    logging.info('server started')
+    return app
+
+def register_blueprints(app):
+    '''
+    register blueprints
+    '''
     app.register_blueprint(bp_users)
     app.register_blueprint(bp_users_api)
     app.register_blueprint(bp_items)
     app.register_blueprint(bp_items_api)
 
-    # register request filter
+def register_app_lifetime_events(app):
+    '''
+    register app lifetime events
+    '''
     @app.before_request
-    def url_filter():
+    def before_request():
         '''
-        request filter handler
+        url filter
         '''
         if request.path.startswith('/api'):
             return verify_sign(app)
 
     @app.context_processor
     def inject_user():
+        '''
+        add user info from session
+        '''
         return dict(user=session.get('user', None))
 
-    # init database
-    register_teardowns(app)
-
-    logging.info('server started')
-    return app
-
-def register_teardowns(app):
-    '''
-    close database connection when server teardown
-    '''
     @app.teardown_appcontext
-    def close_db(error):
+    def teardown(error):
         '''
-        close database connection
+        close database connection and scheduler
         '''
+        # close database connection
         if hasattr(g, 'sql_db'):
             logging.info('close the database connection')
             g.sql_db.close()
+
+def register_scheduler(app):
+    '''
+    register scheduler
+    '''
+    scheduler = BackgroundScheduler()
+    scheduler.add_job(update_item_info, 'interval', minutes=1)
 
 def verify_sign(app):
     '''
@@ -106,3 +127,10 @@ def verify_sign(app):
         logging.error('invalid sign')
         logging.info(header_sign)
         return make_response(('Invalid Sign', 500))
+
+def update_item_info():
+    '''
+    update item info
+    '''
+    connection = connect_db()
+    

@@ -10,7 +10,7 @@ from price_monitor.spider import taobao
 from flask import Blueprint, request, jsonify, session, redirect, render_template, url_for
 from price_monitor.models import ResponseBody, ResultCode, get_db, next_id, ItemState
 from price_monitor.util.verify_util import contain_empty_str
-from .errors import InsertError
+from .errors import SQLError
 
 bp_items = Blueprint('items', __name__)
 bp_items_api = Blueprint('items_api', __name__, url_prefix='/api')
@@ -81,16 +81,16 @@ def api_store_item():
             try:
                 item_p_id = next_id()
                 item_sql = '''
-                        insert into item
-                        (id, item_id, mall_type, url, name, image_url, shop_name, state, send_city, create_time, monitor_num)
-                        values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 1)
-                        '''
+                           insert into item
+                           (id, item_id, mall_type, url, name, image_url, shop_name, state, send_city, create_time, monitor_num)
+                           values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 1)
+                           '''
                 item_sql_params = (item_p_id, item_id, mall_type, url, name,
                                    image_url, shop_name, ItemState.Valid.value,
                                    send_city, nowtime)
                 cursor.execute(item_sql, item_sql_params)
                 if cursor.rowcount < 1:
-                    raise InsertError(item_sql, item_sql_params, '商品缓存失败')
+                    raise SQLError(ResultCode.Insert_Error, item_sql, item_sql_params, '商品缓存失败')
 
                 # store price record
                 stock_info = request.json.get('stock_info', [])
@@ -101,10 +101,10 @@ def api_store_item():
                     sku_groups = []
                 for info in stock_info:
                     item_price_sql = '''
-                                    insert into item_price
-                                    (id, item_p_id, name, pvs, price, stock, updated_time)
-                                    values (%s, %s, %s, %s, %s, %s, %s)
-                                    '''
+                                     insert into item_price
+                                     (id, item_p_id, name, pvs, price, stock, updated_time)
+                                     values (%s, %s, %s, %s, %s, %s, %s)
+                                     '''
                     info_name = info.get('name', '')
                     pvs = info.get('pvs', '')
                     stock = info.get('stock', '')
@@ -113,25 +113,25 @@ def api_store_item():
                                              pvs, price, stock, nowtime)
                     cursor.execute(item_price_sql, item_price_sql_params)
                     if cursor.rowcount < 1:
-                        raise InsertError(item_price_sql, item_price_sql_params, '商品缓存失败')
+                        raise SQLError(ResultCode.Insert_Error, item_price_sql, item_price_sql_params, '商品缓存失败')
 
                 # store pvs record
                 for group in sku_groups:
                     group_id = group.get('group_id', '').strip()
                     for sku in group.get('pvs', []):
                         sku_sql = '''
-                                insert into item_pvs
-                                (id, item_p_id, group_id, name, pvs)
-                                values (%s, %s, %s, %s, %s)
-                                '''
+                                  insert into item_pvs
+                                  (id, item_p_id, group_id, name, pvs)
+                                  values (%s, %s, %s, %s, %s)
+                                  '''
                         pvs_name = sku.get('name', '')
                         sku_pvs = sku.get('pvs', '')
                         sku_sql_params = (next_id(), item_p_id, group_id, pvs_name, sku_pvs)
                         cursor.execute(sku_sql, sku_sql_params)
                         if cursor.rowcount < 1:
-                            raise InsertError(sku_sql, sku_sql_params, '商品缓存失败')
-            except InsertError as error:
-                resp.result_code = ResultCode.Insert_Error.value
+                            raise SQLError(ResultCode.Insert_Error, sku_sql, sku_sql_params, '商品缓存失败')
+            except SQLError as error:
+                resp.result_code = error.code
                 resp.msg = error.message
                 return jsonify(resp.to_dict())
 
@@ -145,25 +145,29 @@ def api_store_item():
         if values:
             resp.msg = '商品已添加'
         else:
-            user_item_sql = '''
-                            insert into user_item (user_id, item_p_id) values(%s, %s)
-                            '''
-            user_id = session['user']['user_id']
-            cursor.execute(user_item_sql, (user_id, item_p_id))
-            if cursor.rowcount < 1:
-                resp.result_code = ResultCode.Insert_Error.value
-                resp.msg = '商品添加失败'
-                return jsonify(resp.to_dict())
-
-            if items:
-                item_monitor_sql = '''
-                                   update item set monitor_num = %s where id = %s
-                                   '''
-                cursor.execute(item_monitor_sql, (items[0]['monitor_num'] + 1, item_p_id))
+            try:
+                user_item_sql = '''
+                                insert into user_item (user_id, item_p_id) values(%s, %s)
+                                '''
+                user_id = session['user']['user_id']
+                user_item_params = (user_id, item_p_id)
+                cursor.execute(user_item_sql, user_item_params)
                 if cursor.rowcount < 1:
-                    resp.result_code = ResultCode.Insert_Error.value
-                    resp.msg = '商品添加失败'
-                    return jsonify(resp.to_dict())
+                    raise SQLError(ResultCode.Insert_Error, user_item_sql, user_item_params, '商品添加失败')
+
+                if items:
+                    item_monitor_sql = '''
+                                       update item set monitor_num = %s where id = %s
+                                       '''
+                    item_monitor_params = (items[0]['monitor_num'] + 1, item_p_id)
+                    cursor.execute(item_monitor_sql, item_monitor_params)
+                    if cursor.rowcount < 1:
+                        raise SQLError(ResultCode.Update_Error, item_monitor_sql, user_item_params, '商品添加失败')
+
+            except SQLError as error:
+                resp.result_code = error.code
+                resp.msg = error.message
+                return jsonify(resp.to_dict())
     connection.commit()
 
     return jsonify(resp.to_dict())
@@ -187,29 +191,34 @@ def api_disconnect_item():
     user = session.get('user', None)
     connection = get_db()
     with connection.cursor() as cursor:
-        delete_connection_sql = 'delete from user_item where user_id=%s and item_p_id=%s'
-        cursor.execute(delete_connection_sql, (user.user_id, item_p_id))
-        if cursor.rowcount < 1:
-            resp.result_code = ResultCode.Delete_Error
-
-        query_item_sql = 'select monitor_num from item where id=%s'
-        cursor.execute(query_item_sql, (item_p_id,))
-        item = cursor.fetchall()[0]
-        if item.monitor_num > 1:
-            update_item_sql = 'update item set monitor_num = %s where id=%s'
-            cursor.execute(update_item_sql, (item.monitor_num - 1, item_p_id))
+        try:
+            delete_connection_sql = 'delete from user_item where user_id=%s and item_p_id=%s'
+            delete_connection_params = (user['user_id'], item_p_id)
+            cursor.execute(delete_connection_sql, delete_connection_params)
             if cursor.rowcount < 1:
-                resp.result_code = ResultCode.Update_Error
-        else:
-            delete_item_sql = 'delete from item where id=%s'
-            cursor.execute(delete_item_sql, (item_p_id,))
+                raise SQLError(ResultCode.Delete_Error, delete_connection_sql, delete_connection_params, '商品删除失败')
 
-            delete_pvs_sql = 'delete from item_pvs where id=%s'
-            cursor.execute(delete_pvs_sql, (item_p_id,))
+            query_item_sql = 'select monitor_num from item where id=%s'
+            cursor.execute(query_item_sql, (item_p_id,))
+            item = cursor.fetchall()[0]
+            if item['monitor_num'] > 1:
+                update_item_sql = 'update item set monitor_num = %s where id=%s'
+                update_item_params = (item['monitor_num'] - 1, item_p_id)
+                cursor.execute(update_item_sql, update_item_params)
+            else:
+                delete_item_sql = 'delete from item where id=%s'
+                cursor.execute(delete_item_sql, (item_p_id,))
 
-            delete_price_sql = 'delete from item_price where id=%s'
-            cursor.execute(delete_price_sql, (item_p_id,))
+                delete_pvs_sql = 'delete from item_pvs where item_p_id=%s'
+                cursor.execute(delete_pvs_sql, (item_p_id,))
 
+                delete_price_sql = 'delete from item_price where item_p_id=%s'
+                cursor.execute(delete_price_sql, (item_p_id,))
+        except SQLError as error:
+            resp.result_code = error.code
+            resp.msg = error.message
+    connection.commit()
+    return jsonify(resp.to_dict())
 
 def query_items():
     '''

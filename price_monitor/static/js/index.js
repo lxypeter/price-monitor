@@ -30,8 +30,10 @@ window.onload = function() {
                     modal.isLoading = false;
                     if (response.data.result_code == 0) {
                         itemList.loadItems()
+                        UIkit.modal('#modal-group-2').hide();
+                    } else {
+                        modal.errorMsg = response.data.msg
                     }
-                    alert(response.data.msg)
                 }).catch(function(error){
                     modal.isLoading = false;
                     modal.errorMsg = '服务器异常';
@@ -79,14 +81,28 @@ window.onload = function() {
         },
         methods: {
             loadItems: function() {
+                this.isLoading = true;
                 SignFetch.post('/api/sign/item/list', {}, this.$refs.token.value).then(function(response) {
+                    itemList.isLoading = false;
                     if (response.data.result_code == 0) {
-                        console.log(response.data.data);
                         itemList.items = response.data.data;
                     }
                 }).catch(function(error){
-                    modal.isLoading = false;
-                    modal.errorMsg = '服务器异常';
+                    itemList.isLoading = false;
+                    itemList.errorMsg = '服务器异常';
+                });
+            },
+            disconnectItem: function(item) {
+                result = confirm('确定删除"' + item.name + '"吗？');
+                if (!result) { return; }
+                SignFetch.post('/api/sign/item/disconnection', item, this.$refs.token.value).then(function(response) {
+                    if (response.data.result_code == 0) {
+                        itemList.loadItems()
+                    }
+                    console.log(response.data.data);
+                }).catch(function(error){
+                    itemList.isLoading = false;
+                    itemList.errorMsg = '服务器异常';
                 });
             },
         },

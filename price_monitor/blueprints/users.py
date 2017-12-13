@@ -75,7 +75,7 @@ def api_register():
                 resp.msg = '邮箱%s已注册' % email
             return jsonify(resp.to_dict())
 
-    # insert the record
+        # insert the record
         sql = '''
                 insert into user
                 (id, username, email, password, nickname, gender, create_time)
