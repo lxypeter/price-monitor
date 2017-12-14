@@ -11,12 +11,18 @@ from io import StringIO
 import hashlib
 from datetime import datetime
 import json
+import redis
 from flask import Flask, g, request, make_response, session
 from apscheduler.schedulers.background import BackgroundScheduler
-from .models import connect_db
+from .models import connect_db, RedisKey, REDIS_POOL
 from .blueprints.users import bp_users, bp_users_api
 from .blueprints.items import bp_items, bp_items_api
 from .util.encrypt_util import rsa_create_keys
+from .config import DefalutConfig
+from .schedules import update_item_info
+
+CONFIG_REDIS = None
+CONFIG_DB = None
 
 def create_app():
     '''
@@ -25,7 +31,7 @@ def create_app():
     logging.basicConfig(level=logging.INFO)
     # init app and load configuration
     app = Flask(__name__, instance_relative_config=True)
-    app.config.from_object('config')
+    app.config.from_object(DefalutConfig)
     app.config.from_pyfile('config.py')
     keys = rsa_create_keys()
     app.config.update({
@@ -42,8 +48,11 @@ def create_app():
     # register app lifetime events
     register_app_lifetime_events(app)
 
+    # register redis
+    register_redis()
+
     # register scheduler
-    register_scheduler(app)
+    register_scheduler()
 
     logging.info('server started')
     return app
@@ -86,12 +95,31 @@ def register_app_lifetime_events(app):
             logging.info('close the database connection')
             g.sql_db.close()
 
-def register_scheduler(app):
+def register_redis():
+    '''
+    init redis
+    '''
+    # cache valid items
+    connection = connect_db(DefalutConfig.DB)
+    with connection.cursor() as cursor:
+        valid_items_sql = 'select id, url, mall_type from item where monitor_num > 0'
+        cursor.execute(valid_items_sql, ())
+        valid_items = cursor.fetchall()
+        re_pipe = redis.Redis(connection_pool=REDIS_POOL).pipeline(transaction=True)
+        re_pipe.delete(RedisKey.VALID_ITEMS)
+        for item in valid_items:
+            item_json = json.dumps(item, ensure_ascii=False, separators=(',', ':'))
+            re_pipe.sadd(RedisKey.VALID_ITEMS, item_json)
+        re_pipe.execute()
+
+def register_scheduler():
     '''
     register scheduler
     '''
+    print('reigister scheduler ===================================================')
     scheduler = BackgroundScheduler()
     scheduler.add_job(update_item_info, 'interval', minutes=1)
+    scheduler.start()
 
 def verify_sign(app):
     '''
@@ -116,7 +144,7 @@ def verify_sign(app):
         value = request.json.get(key, '')
         if value is None:
             value = ''
-        value = json.dumps(value, ensure_ascii=False, separators=(',',':'))
+        value = json.dumps(value, ensure_ascii=False, separators=(',', ':'))
         str_io.write(value)
     str_io.write(date_str)
     sha1 = hashlib.sha1()
@@ -127,10 +155,3 @@ def verify_sign(app):
         logging.error('invalid sign')
         logging.info(header_sign)
         return make_response(('Invalid Sign', 500))
-
-def update_item_info():
-    '''
-    update item info
-    '''
-    connection = connect_db()
-    

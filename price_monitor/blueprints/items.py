@@ -105,7 +105,7 @@ def api_store_item():
                                      (id, item_p_id, name, pvs, price, stock, updated_time)
                                      values (%s, %s, %s, %s, %s, %s, %s)
                                      '''
-                    info_name = info.get('name', '')
+                    info_name = info.get('names', '')
                     pvs = info.get('pvs', '')
                     stock = info.get('stock', '')
                     price = info.get('price', '')

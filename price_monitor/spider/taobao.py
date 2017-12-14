@@ -43,9 +43,9 @@ def fetch_item_url(url, **kw):
             is_tmall = False
             
     if is_tmall:
-        item['mall_type'] = MerchantType.Tmall.value
+        item['mall_type'] = MerchantType.Tmall
     else:
-        item['mall_type'] = MerchantType.Taobao.value
+        item['mall_type'] = MerchantType.Taobao
 
     # 解析url参数
     parse_result = parse.urlparse(url)
@@ -173,7 +173,7 @@ def fetch_item_url(url, **kw):
                     sku_keys = sku_pvs.split(';')
                     for sku_key in sku_keys:
                         sku_desc.append(sku_dict.get(sku_key, ''))
-                    sku_info['name'] = ' '.join(sku_desc)
+                    sku_info['names'] = ' '.join(sku_desc)
 
                 sku_info.update(stock_dict.get(key, {}))
                 stock_info.append(sku_info)

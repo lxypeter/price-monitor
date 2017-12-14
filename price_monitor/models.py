@@ -10,14 +10,18 @@ import logging
 import time
 import uuid
 from enum import Enum, unique
-from flask import current_app, g
+from flask import g
 import pymysql.cursors
+import redis
+from .config import DefalutConfig
 
-def connect_db():
+REDIS_POOL = redis.ConnectionPool(host=DefalutConfig.REDIS['HOST'],
+                                  port=DefalutConfig.REDIS['PORT'])
+
+def connect_db(db_config):
     '''
     connect to the database
     '''
-    db_config = current_app.config['DB']
     connection = pymysql.connect(host=db_config['HOST'],
                                  port=db_config['PORT'],
                                  user=db_config['USER'],
@@ -33,7 +37,8 @@ def get_db():
     get database connection, create if not exist
     '''
     if not hasattr(g, 'sql_db'):
-        g.sql_db = connect_db()
+        db_config = DefalutConfig.DB
+        g.sql_db = connect_db(db_config)
     return g.sql_db
 
 def next_id():
@@ -63,8 +68,7 @@ class Gender(Enum):
     Female = 1
     Unknown = 2
 
-@unique
-class MerchantType(Enum):
+class MerchantType(object):
     '''
     enum of merchant type
     '''
@@ -98,3 +102,9 @@ class ResponseBody(object):
             'msg': self.msg,
             'data': self.data,
         }
+
+class RedisKey(object):
+    '''
+    constants of redis key
+    '''
+    VALID_ITEMS = 'valid_items'
