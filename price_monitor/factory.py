@@ -11,6 +11,7 @@ from io import StringIO
 import hashlib
 from datetime import datetime
 import json
+import functools
 import redis
 from flask import Flask, g, request, make_response, session
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -20,9 +21,6 @@ from .blueprints.items import bp_items, bp_items_api
 from .util.encrypt_util import rsa_create_keys
 from .config import DefalutConfig
 from .schedules import update_item_info
-
-CONFIG_REDIS = None
-CONFIG_DB = None
 
 def create_app():
     '''
@@ -102,7 +100,7 @@ def register_redis():
     # cache valid items
     connection = connect_db(DefalutConfig.DB)
     with connection.cursor() as cursor:
-        valid_items_sql = 'select id, url, mall_type from item where monitor_num > 0'
+        valid_items_sql = 'select id, url, mall_type, name, image_url from item where monitor_num > 0'
         cursor.execute(valid_items_sql, ())
         valid_items = cursor.fetchall()
         re_pipe = redis.Redis(connection_pool=REDIS_POOL).pipeline(transaction=True)
@@ -116,7 +114,6 @@ def register_scheduler():
     '''
     register scheduler
     '''
-    print('reigister scheduler ===================================================')
     scheduler = BackgroundScheduler()
     scheduler.add_job(update_item_info, 'interval', minutes=1)
     scheduler.start()

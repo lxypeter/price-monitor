@@ -65,7 +65,7 @@
     <div class="item-card-container">
         <div v-for="item in items" class="uk-card uk-card-default uk-card-hover uk-card-body item-card">
             <a v-on:click="disconnectItem(item)" class="item-close" href="javascript: void(0)" :uk-close="'uk-close'"></a>
-            <a style="text-decoration: none; cursor: pointer" href="javascript: void(0)">
+            <a v-on:click="showDetail(item)" style="text-decoration: none; cursor: pointer" href="javascript: void(0)">
                 <img class="item-image" v-bind:src="item.image_url"/>
                 <div style="padding: 10px">
                     <div class="price-text">
@@ -115,12 +115,12 @@
                     </svg>
                 </div>
                 <div v-show='!isLoading && !showError' class="uk-flex" >
-                    <img v-bind:src="item.item_image" style="width: 200px; height: 200px;" />
+                    <img v-bind:src="item.image_url" style="width: 200px; height: 200px;" />
                     <div style="flex-direction: column; margin-left: 20px">
-                        <p style="margin-bottom: 0px">{{item.item_name}}</p>
+                        <p style="margin-bottom: 0px">{{item.name}}</p>
                         <div style="font-family: verdana,arial; font-size: 26px; font-weight: 700;">
                             ¥{{item | showingPrice}}
-                            <span v-show="multiSku" class="uk-label uk-label-success">多种规格</span>
+                            <span v-show="multiSku(item)" class="uk-label uk-label-success">多种规格</span>
                         </div>
                         <div style="font-size: 12px;">{{item.shop_name}}</div>
                         <div style="font-size: 12px;">{{item.send_city}}</div>
@@ -135,6 +135,35 @@
             <div class="uk-modal-footer uk-text-right">
                 <a href="#modal-group-1" class="uk-button uk-button-default uk-modal-close" uk-toggle>返回</a>
                 <button v-on:click="submitItem" class="uk-button uk-button-primary" >确定</button>
+            </div>
+        </div>
+    </div>
+    <div id="modal-item-detail" uk-modal>
+        <div class="uk-modal-dialog">
+            <button class="uk-modal-close-default" type="button" :uk-close="'uk-close'"></button>
+            <div class="uk-modal-header">
+                <h2 class="uk-modal-title">商品信息</h2>
+            </div>
+            <div class="uk-modal-body uk-flex" style="justify-content: center; align-items: center">
+                <div v-show='isLoading' class="uk-spinner uk-icon" style="align-content: center;">
+                    <svg width="30" height="30" viewBox="0 0 30 30" xmlns="http://www.w3.org/2000/svg" ratio="2">
+                        <circle fill="none" stroke="#000" cx="15" cy="15" r="14"></circle>
+                    </svg>
+                </div>
+                <div class="uk-flex" >
+                    <img v-bind:src="showingItem.image_url" style="width: 200px; height: 200px;" />
+                    <div style="flex-direction: column; margin-left: 20px">
+                        <a v-bind:href="showingItem.url" target="view_window" style="margin-bottom: 0px">{{showingItem.name}}</a>
+                        <div style="font-family: verdana,arial; font-size: 26px; font-weight: 700;">
+                            <span v-show="multiSku(showingItem)" class="uk-label uk-label-success">多种规格</span>
+                        </div>
+                        <div style="font-size: 12px;">{{showingItem.shop_name}}</div>
+                        <div style="font-size: 12px;">{{showingItem.send_city}}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="uk-modal-footer uk-text-right">
+                <button class="uk-button uk-button-primary uk-modal-close" >确定</button>
             </div>
         </div>
     </div>

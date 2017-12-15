@@ -71,13 +71,13 @@ def fetch_item_url(url, **kw):
     for tag in item_name_tags:
         if name_filter(tag):
             item_name = ' '.join(tag.stripped_strings)
-    item['item_name'] = item_name
+    item['name'] = item_name
 
     # 商品图片
     item_image_tag = item_soup.find('img', id='J_ImgBooth')
     item_image = item_image_tag.get('src', '')
     item_image = re.match(r'(/*)(.*)', item_image).groups()[1]
-    item['item_image'] = u'http://' + item_image
+    item['image_url'] = u'http://' + item_image
 
     # 店铺名
     shop_name = ''
@@ -137,7 +137,7 @@ def fetch_item_url(url, **kw):
         item['send_city'] = send_city
 
         # 价格及库存
-        stock_info = None
+        prices = None
         if is_tmall and sku_dict:
             '''
             天猫
@@ -151,12 +151,12 @@ def fetch_item_url(url, **kw):
             for sku_info in sku_list:
                 key = ';' + sku_info['pvs'] + ';'
                 sku_info.update(sku_map.get(key, {}))
-            stock_info = sku_list
+            prices = sku_list
         else:
             '''
             普通商家
             '''
-            stock_info = []
+            prices = []
             price_dict = detail_dict.get('data').get('originalPrice')
             stock_dict = detail_dict.get('data').get('dynStock', {}).get('sku', {})
             for key, value in price_dict.items():
@@ -176,17 +176,18 @@ def fetch_item_url(url, **kw):
                     sku_info['names'] = ' '.join(sku_desc)
 
                 sku_info.update(stock_dict.get(key, {}))
-                stock_info.append(sku_info)
+                prices.append(sku_info)
 
         # 促销价
         pmt_data = detail_dict.get('data').get('promotion').get('promoData')
         for key, value in pmt_data.items():
-            for info in stock_info:
+            for info in prices:
                 if key == info.get('pvs', '') and value[0].get('price', None) != None:
                     info['price'] = value[0].get('price', None)
-        item['stock_info'] = stock_info
+        item['prices'] = prices
     except Exception as error:
         raise error
+    # print(item)
     return item
 
 # test_url = 'https://item.taobao.com/item.htm?spm=a230r.1.14.132.766fec1cYSS30p&id=558541926182&ns=1&abbucket=3#detail'

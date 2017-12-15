@@ -59,8 +59,8 @@ def api_store_item():
 
     item_id = request.json.get('item_id', '').strip()
     url = request.json.get('url', '').strip()
-    name = request.json.get('item_name', '').strip()
-    image_url = request.json.get('item_image', '').strip()
+    name = request.json.get('name', '').strip()
+    image_url = request.json.get('image_url', '').strip()
     shop_name = request.json.get('shop_name', '').strip()
     mall_type = request.json.get('mall_type', '').strip()
     send_city = request.json.get('send_city', '').strip()
@@ -93,13 +93,13 @@ def api_store_item():
                     raise SQLError(ResultCode.Insert_Error, item_sql, item_sql_params, '商品缓存失败')
 
                 # store price record
-                stock_info = request.json.get('stock_info', [])
+                prices = request.json.get('prices', [])
                 sku_groups = request.json.get('sku_groups', [])
-                if not stock_info:
-                    stock_info = []
+                if not prices:
+                    prices = []
                 if not sku_groups:
                     sku_groups = []
-                for info in stock_info:
+                for info in prices:
                     item_price_sql = '''
                                      insert into item_price
                                      (id, item_p_id, name, pvs, price, stock, updated_time)
@@ -239,11 +239,35 @@ def query_items():
             return []
         for item in items:
             item_p_id = item['id']
-            query_price_sql = '''
-                              select name, pvs, price, stock, updated_time from item_price
-                              where item_p_id = %s
-                              '''
-            cursor.execute(query_price_sql, (item_p_id,))
+            query_price_sql1 = "set @num := 0, @pvs := ''"
+            cursor.execute(query_price_sql1, ())
+            query_price_sql2 = '''
+                                  select pvs, price, updated_time
+                                  from (
+                                  select pvs, price, updated_time, @num := if (@pvs = pvs, @num + 1, 1) as row_number, @pvs := pvs as dummy 
+                                  from item_price
+                                  where item_p_id = %s
+                                  order by pvs asc, updated_time desc
+                                  ) as x where x.row_number = 1
+                                  '''
+            cursor.execute(query_price_sql2, (item_p_id,))
             prices = cursor.fetchall()
             item['prices'] = prices
+
+            item_pvs_group_list = []
+            if len(prices) > 1:
+                item_pvs_sql = 'select name, pvs from item_pvs where item_p_id = %s'
+                cursor.execute(item_pvs_sql, (item_p_id,))
+                item_pvs = cursor.fetchall()
+
+                pvs_sample = prices[0]['pvs']
+                for section in pvs_sample.split(';'):
+                    group_id = section.split(':')[0]
+                    pvs_sections = []
+                    for pvs in item_pvs:
+                        if pvs['pvs'].startswith(group_id):
+                            pvs_sections.append(pvs)
+                    item_pvs_group_list.append(pvs_sections)
+
+            item['item_pvs'] = item_pvs_group_list
         return items

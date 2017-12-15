@@ -10,4 +10,4 @@ from price_monitor.factory import create_app
 
 if __name__ == '__main__':
     APP = create_app()
-    APP.run()
+    APP.run(use_reloader=False)
