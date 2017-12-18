@@ -1,0 +1,168 @@
+{% extends '__index_nav__.html' %}
+
+{% block title %}等价 - 用户中心{% endblock %}
+
+{% block beforehead %}
+<style type="text/css">
+.uk-form-horizontal .uk-form-label {
+    width: 200px;
+}
+.user-detail .uk-form-label {
+    margin-top: 0px;
+}
+.uk-form-horizontal .uk-form-controls {
+    margin-left: 215px;
+}
+</style>
+<script>
+window.onload = function() {
+    var user = new Vue({
+        el: '#user-view',
+        data: {
+            showingContent: 'detail',
+            oldPassword: '',
+            password: '',
+            password2: '',
+            errorMsg: '',
+        },
+        computed: {
+            showError: function() {
+                return this.errorMsg != null && this.errorMsg.trim() != '';
+            }
+        },
+        methods: {
+            navTo: function(navName) {
+                if (navName == this.showingContent) { return; }
+                this.showingContent = navName;
+            },
+            verifyInput: function() {
+                let result = VerifyUtil.username(this.username)||VerifyUtil.email(this.email)||VerifyUtil.password(this.password)||VerifyUtil.comparePassword(this.password, this.password2);
+                if (result) { 
+                    this.errorMsg = result;
+                    return false;
+                } else {
+                    this.errorMsg = '';
+                    return true;
+                }
+            },
+            submitNewPassword: function() {
+                // if (!this.verifyInput()) { return; }
+                // var encrypt = new JSEncrypt();
+                // encrypt.setPublicKey(this.$refs.publicKey.value);
+                // var encryptedPassword = encrypt.encrypt(this.password);
+                // const data = {
+                //     'username': this.username,
+                //     'email': this.email,
+                //     'password': encryptedPassword,
+                // };
+                // SignFetch.post('/api/register', data, this.$refs.token.value).then(function(response) {
+                //     if (response.data.result_code != 0) {
+                //         form.errorMsg = response.data.msg;
+                //     } else {
+                //         window.location = '/'
+                //     }
+                // }).catch(function(error){
+                //     form.errorMsg = '服务器异常';
+                // });
+            },
+            changeNotiConfig: function() {
+
+            },
+        },
+        filters: {
+            genderText: function(genderNum) {
+                if (genderNum == '1') {
+                    return '女';
+                } else if (genderNum == '0') {
+                    return '男';
+                }
+                return '未知';
+            },
+        },
+    });
+};
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="uk-flex" id="user-view">
+    <div class="uk-width-1-4">
+        <ul class="uk-nav-default uk-nav-parent-icon" uk-nav="multiple: true">
+            <li v-bind:class="{'uk-active': showingContent == 'detail'}">
+                <a v-on:click="navTo('detail')" href="javascript: void(0);">个人信息</a>
+            </li>
+            <li v-bind:class="{'uk-active': showingContent == 'password'}">
+                <a v-on:click="navTo('password')" href="javascript: void(0);">密码修改</a>
+            </li>
+            <li v-bind:class="{'uk-active': showingContent == 'notification'}">
+                <a v-on:click="navTo('notification')" href="javascript: void(0);">推送设置</a>
+            </li>
+        </ul>
+    </div>
+    <div v-show="showingContent == 'detail'" style="flex: 1; padding-top: 5px">
+        <form class="uk-form-horizontal uk-margin-large user-detail">
+            <div class="uk-margin">
+                <label class="uk-form-label form-label">用户名</label>
+                <div class="uk-form-controls">
+                    {[ user['username'] ]}
+                </div>
+            </div>
+            <div class="uk-margin">
+                <label class="uk-form-label form-label">昵称</label>
+                <div class="uk-form-controls">
+                    {[ user['nickname'] ]}
+                </div>
+            </div>
+            <div class="uk-margin">
+                <label class="uk-form-label form-label">电子邮箱</label>
+                <div class="uk-form-controls">
+                    {[ user['email'] ]}
+                </div>
+            </div>
+            <div class="uk-margin">
+                <label class="uk-form-label form-label">性别</label>
+                <div class="uk-form-controls">
+                    {{ {[ user['gender'] ]} | genderText }}
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <div v-show="showingContent == 'password'" style="flex: 1">
+        <form v-on:submit="submitNewPassword" class="uk-form-horizontal uk-margin-large" onsubmit="return false">
+            <div class="uk-alert uk-alert-danger" v-show="showError">{{errorMsg}}</div>
+            <div class="uk-margin">
+                <label class="uk-form-label form-label">旧密码</label>
+                <div class="uk-form-controls">
+                    <input v-model="oldPassword" class="uk-input" type="password" placeholder="请输入旧密码">
+                </div>
+            </div>
+            <div class="uk-margin">
+                <label class="uk-form-label form-label" >新密码</label>
+                <div class="uk-form-controls">
+                    <input v-model="password" class="uk-input" type="password" placeholder="请输入6-16位密码">
+                </div>
+            </div>
+            <div class="uk-margin">
+                <label class="uk-form-label form-label" >再次输入新密码</label>
+                <div class="uk-form-controls">
+                    <input v-model="password2" class="uk-input" type="password" placeholder="请再次输入6-16位密码">
+                </div>
+            </div>
+            <div class="uk-margin">
+                <button type="submit" class="uk-button uk-button-default uk-align-center">提交</button>
+            </div>
+        </form>
+    </div>
+
+    <div v-show="showingContent == 'notification'" style="flex: 1">
+        <div class="uk-margin">
+            <label>商品价格变动时是否邮件通知我</label>
+            <div style="margin-top: 15px">
+                <button class="uk-button uk-button-danger" style="margin-right: 15px">是</button>
+                <button class="uk-button uk-button-default">否</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

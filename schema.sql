@@ -48,6 +48,7 @@ create table item_pvs (
     `id` varchar(50) not null,
     `item_p_id` varchar(50) not null,
     `group_id` varchar(50) not null,
+    `group_name` varchar(50) not null,
     `name` varchar(50) not null,
     `pvs` varchar(50) not null,
     primary key (`id`)

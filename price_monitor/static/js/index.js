@@ -7,6 +7,7 @@ window.onload = function() {
             item: {},
             errorMsg: '',
             showingItem: {},
+            showingSelectedPvs: [],
         },
         methods: {
             confirmUrl: function() {
@@ -47,10 +48,50 @@ window.onload = function() {
                 }
                 return false;
             },
+            selectPvs: function(pvs, group_index) {
+                Vue.set(this.showingSelectedPvs, group_index, pvs);
+            },
+            isPvsButtonDisable: function(pvs, group_index) {
+                let previousPvs = '';
+                let sep = ''
+                for (i = 0; i < group_index; i++) {
+                    if (this.showingSelectedPvs[i] != null || this.showingSelectedPvs[i] != undefined) {
+                        previousPvs = previousPvs + sep + this.showingSelectedPvs[i];
+                        sep = ';';
+                    }
+                }
+                previousPvs = previousPvs + sep + pvs;
+                for (i = 0; i < this.showingItem.prices.length; i++) {
+                    let pricePvs = this.showingItem.prices[i];
+                    if (pricePvs.pvs.startsWith(previousPvs)) {
+                        return false;
+                    }
+                }
+                return true;
+            }
         },
         computed: {
             showError: function() {
                 return this.errorMsg != null && this.errorMsg.trim() != '';
+            },
+            showingPrice: function() {
+                if (Object.keys(this.showingItem).length <= 0) { return ''; }
+                if (this.showingItem.prices.length == 1) { return '¥' + this.showingItem.prices[0].price; }
+                let previousPvs = '';
+                let sep = ''
+                for (i = 0; i < this.showingSelectedPvs.length; i++) {
+                    if (this.showingSelectedPvs[i] != null || this.showingSelectedPvs[i] != undefined) {
+                        previousPvs = previousPvs + sep + this.showingSelectedPvs[i];
+                        sep = ';';
+                    }
+                }
+                for (i = 0; i < this.showingItem.prices.length; i++) {
+                    let pricePvs = this.showingItem.prices[i];
+                    if (pricePvs.pvs == previousPvs) {
+                        return '¥' + pricePvs.price;
+                    }
+                }
+                return '';
             },
         },
         filters: {
@@ -70,6 +111,11 @@ window.onload = function() {
                 return price;
             },
         },
+        watch: {
+            showingItem: function(newItem){
+                this.showingSelectedPvs = [];
+            },
+        }
     });
 
     var itemList = new Vue({

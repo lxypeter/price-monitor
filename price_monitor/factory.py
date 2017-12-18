@@ -115,7 +115,7 @@ def register_scheduler():
     register scheduler
     '''
     scheduler = BackgroundScheduler()
-    scheduler.add_job(update_item_info, 'interval', minutes=1)
+    scheduler.add_job(update_item_info, 'interval', minutes=30)
     scheduler.start()
 
 def verify_sign(app):

@@ -104,8 +104,8 @@ def fetch_item_url(url, **kw):
         sku_groups = []
         for tag in sku_tags:
             sku_group = {}
-            type_name = tag.find('dt').text
-            sku_group['type_name'] = type_name
+            group_name = tag.find('dt').text
+            sku_group['group_name'] = group_name
             sku_pvs = []
 
             ul_tag = tag.find('ul', class_=re.compile(r'(J_TSaleProp|tm-clear)(.*)'))

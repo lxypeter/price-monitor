@@ -16,6 +16,16 @@ from price_monitor.util.encrypt_util import rsa_get_public_key, rsa_get_private_
 bp_users = Blueprint('users', __name__)
 bp_users_api = Blueprint('users_api', __name__, url_prefix='/api')
 
+@bp_users.route('/user', methods=['GET'])
+def user_page():
+    '''
+    user page
+    '''
+    user = session.get('user', None)
+    if not user:
+        return redirect(url_for('users.login'))
+    return render_template('user.html')
+
 @bp_users.route('/register', methods=['GET'])
 def register():
     '''
@@ -93,7 +103,16 @@ def api_register():
             return jsonify(resp.to_dict())
     connection.commit()
     token = gen_token(username)
-    session['user'] = {'user_id': user_id, 'username': username, 'email': email, 'token': token}
+    user = dict()
+    user['user_id'] = user_id
+    user['nickname'] = username
+    user['username'] = username
+    user['email'] = email
+    user['token'] = token
+    user['image'] = None
+    user['gender'] = Gender.Unknown.value
+
+    session['user'] = user
     return jsonify(resp.to_dict())
 
 @bp_users_api.route('/login', methods=['POST'])
@@ -110,12 +129,14 @@ def api_login():
     connection = get_db()
     # query user
     with connection.cursor() as cursor:
-        query_sql = 'select id, username, email, password from user where username=%s or email=%s'
+        query_sql = '''
+                    select id as user_id, username, email, password, nickname, image, gender
+                    from user where username=%s or email=%s
+                    '''
         cursor.execute(query_sql, (account, account))
         values = cursor.fetchall()
         if values:
             user = values[0]
-            user_id = user.get('id', '')
             username = user.get('username', '')
             email = user.get('email', '')
             password = user.get('password', '')
@@ -125,7 +146,8 @@ def api_login():
             md5.update(hash_password.encode('utf-8'))
             if password == md5.hexdigest():
                 token = gen_token(username)
-                session['user'] = {'user_id': user_id, 'username': username, 'email': email, 'token': token}
+                user['token'] = token
+                session['user'] = user
             else:
                 resp.result_code = ResultCode.Invalid_Input
                 resp.msg = '密码错误'

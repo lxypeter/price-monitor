@@ -55,7 +55,7 @@ def update_item_info():
 
             for new_price in new_item_info['prices']:
                 old_price = old_price_dict.get(new_price['pvs'], None)
-                if not old_price or (float(new_price['price']) != float(old_price['price'])):
+                if not old_price or new_price['price'] != old_price['price']:
                     new_price_sql = '''
                                     insert into item_price
                                     (id, item_p_id, name, pvs, price, stock, updated_time)

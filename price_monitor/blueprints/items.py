@@ -118,15 +118,16 @@ def api_store_item():
                 # store pvs record
                 for group in sku_groups:
                     group_id = group.get('group_id', '').strip()
+                    group_name = group.get('group_name', '').strip()
                     for sku in group.get('pvs', []):
                         sku_sql = '''
                                   insert into item_pvs
-                                  (id, item_p_id, group_id, name, pvs)
-                                  values (%s, %s, %s, %s, %s)
+                                  (id, item_p_id, group_id, group_name, name, pvs)
+                                  values (%s, %s, %s, %s, %s, %s)
                                   '''
                         pvs_name = sku.get('name', '')
                         sku_pvs = sku.get('pvs', '')
-                        sku_sql_params = (next_id(), item_p_id, group_id, pvs_name, sku_pvs)
+                        sku_sql_params = (next_id(), item_p_id, group_id, group_name, pvs_name, sku_pvs)
                         cursor.execute(sku_sql, sku_sql_params)
                         if cursor.rowcount < 1:
                             raise SQLError(ResultCode.Insert_Error, sku_sql, sku_sql_params, '商品缓存失败')
@@ -256,7 +257,7 @@ def query_items():
 
             item_pvs_group_list = []
             if len(prices) > 1:
-                item_pvs_sql = 'select name, pvs from item_pvs where item_p_id = %s'
+                item_pvs_sql = 'select name, pvs, group_name from item_pvs where item_p_id = %s'
                 cursor.execute(item_pvs_sql, (item_p_id,))
                 item_pvs = cursor.fetchall()
 
@@ -267,7 +268,10 @@ def query_items():
                     for pvs in item_pvs:
                         if pvs['pvs'].startswith(group_id):
                             pvs_sections.append(pvs)
-                    item_pvs_group_list.append(pvs_sections)
-
+                    item_pvs_group = dict()
+                    item_pvs_group['group_id'] = group_id
+                    item_pvs_group['group_name'] = pvs_sections[0]['group_name']
+                    item_pvs_group['list'] = pvs_sections
+                    item_pvs_group_list.append(item_pvs_group)
             item['item_pvs'] = item_pvs_group_list
         return items

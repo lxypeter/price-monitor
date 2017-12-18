@@ -51,6 +51,14 @@
     color: #3d3d3d;
     text-decoration: none;
 }
+
+.model-group-button {
+    margin-right: 3px;
+    margin-bottom: 1px;
+    font-size: 12px;
+    padding-right: 5px;
+    padding-left: 5px;
+}
 </style>
 <script src="/static/js/index.js"></script>
 {% endblock %}
@@ -155,10 +163,25 @@
                     <div style="flex-direction: column; margin-left: 20px">
                         <a v-bind:href="showingItem.url" target="view_window" style="margin-bottom: 0px">{{showingItem.name}}</a>
                         <div style="font-family: verdana,arial; font-size: 26px; font-weight: 700;">
+                            {{showingPrice}}
                             <span v-show="multiSku(showingItem)" class="uk-label uk-label-success">多种规格</span>
                         </div>
                         <div style="font-size: 12px;">{{showingItem.shop_name}}</div>
-                        <div style="font-size: 12px;">{{showingItem.send_city}}</div>
+                        <div style="font-size: 12px; margin-bottom: 5px">{{showingItem.send_city}}</div>
+                        <div v-for="(pvs_group, group_index) in showingItem.item_pvs" class="uk-flex" style="flex-direction: row; margin-bottom: 5px" >
+                            <div style="font-size: 12px; width: 50px">{{pvs_group.group_name}}</div>
+                            <div style="flex: 1; flex-direction: column;">
+                                <button 
+                                    v-bind:class="{ 'uk-active': showingSelectedPvs[group_index] == pvs.pvs }"
+                                    v-bind:disabled="isPvsButtonDisable(pvs.pvs, group_index)"
+                                    v-on:click="selectPvs(pvs.pvs, group_index)"
+                                    v-for="pvs in pvs_group.list"
+                                    class="uk-button uk-button-default uk-button-small model-group-button"
+                                >
+                                    {{pvs.name}}
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
