@@ -11,6 +11,7 @@ create table user (
     `password` varchar(50) not null,
     `nickname` varchar(50) not null,
     `gender` char(1) not null,
+    `notification_state` char(1) not null,
     `image` varchar(500),
     `create_time` datetime not null,
     unique key `idx_email` (`email`),

@@ -41,7 +41,7 @@ def fetch_item_url(url, **kw):
             is_tmall = True
         else:
             is_tmall = False
-            
+
     if is_tmall:
         item['mall_type'] = MerchantType.Tmall
     else:

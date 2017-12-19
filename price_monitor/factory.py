@@ -100,13 +100,13 @@ def register_redis():
     # cache valid items
     connection = connect_db(DefalutConfig.DB)
     with connection.cursor() as cursor:
-        valid_items_sql = 'select id, url, mall_type, name, image_url from item where monitor_num > 0'
+        valid_items_sql = 'select id, url, mall_type, name from item where monitor_num > 0'
         cursor.execute(valid_items_sql, ())
         valid_items = cursor.fetchall()
         re_pipe = redis.Redis(connection_pool=REDIS_POOL).pipeline(transaction=True)
         re_pipe.delete(RedisKey.VALID_ITEMS)
         for item in valid_items:
-            item_json = json.dumps(item, ensure_ascii=False, separators=(',', ':'))
+            item_json = json.dumps(item, ensure_ascii=False, separators=(',', ':'), sort_keys=True)
             re_pipe.sadd(RedisKey.VALID_ITEMS, item_json)
         re_pipe.execute()
 

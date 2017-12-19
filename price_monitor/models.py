@@ -59,14 +59,20 @@ class ResultCode(Enum):
     Update_Error = -4
     Delete_Error = -5
 
-@unique
-class Gender(Enum):
+class Gender(object):
     '''
     enum of gender
     '''
-    Male = 0
-    Female = 1
-    Unknown = 2
+    Male = '0'
+    Female = '1'
+    Unknown = '2'
+
+class NotificationState(object):
+    '''
+    enum of notification state
+    '''
+    NotAllow = '0'
+    Allow = '1'
 
 class MerchantType(object):
     '''

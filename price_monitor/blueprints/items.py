@@ -11,18 +11,18 @@ from flask import Blueprint, request, jsonify, session, redirect, render_templat
 from price_monitor.models import ResponseBody, ResultCode, get_db, next_id, ItemState
 from price_monitor.util.verify_util import contain_empty_str
 from .errors import SQLError
+from .users import need_login
 
 bp_items = Blueprint('items', __name__)
 bp_items_api = Blueprint('items_api', __name__, url_prefix='/api')
 
 @bp_items.route('/')
+@need_login
 def index():
     '''
     index page
     '''
     user = session.get('user', None)
-    if not user:
-        return redirect(url_for('users.login'))
     return render_template('index.html', token=user['token'])
 
 @bp_items_api.route('/sign/url/analysis', methods=['POST'])

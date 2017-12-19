@@ -5,13 +5,13 @@
 {% block beforehead %}
 <style type="text/css">
 .uk-form-horizontal .uk-form-label {
-    width: 200px;
+    width: 150px;
 }
 .user-detail .uk-form-label {
     margin-top: 0px;
 }
 .uk-form-horizontal .uk-form-controls {
-    margin-left: 215px;
+    margin-left: 165px;
 }
 </style>
 <script>
@@ -24,11 +24,17 @@ window.onload = function() {
             password: '',
             password2: '',
             errorMsg: '',
+            isSuccess: false,
+            notificationState: '0',
+            notiErrorMsg: '',
         },
         computed: {
             showError: function() {
                 return this.errorMsg != null && this.errorMsg.trim() != '';
-            }
+            },
+            showNotiError: function() {
+                return this.notiErrorMsg != null && this.notiErrorMsg.trim() != '';
+            },
         },
         methods: {
             navTo: function(navName) {
@@ -36,7 +42,7 @@ window.onload = function() {
                 this.showingContent = navName;
             },
             verifyInput: function() {
-                let result = VerifyUtil.username(this.username)||VerifyUtil.email(this.email)||VerifyUtil.password(this.password)||VerifyUtil.comparePassword(this.password, this.password2);
+                let result = VerifyUtil.password(this.password) || VerifyUtil.comparePassword(this.password, this.password2);
                 if (result) { 
                     this.errorMsg = result;
                     return false;
@@ -46,27 +52,42 @@ window.onload = function() {
                 }
             },
             submitNewPassword: function() {
-                // if (!this.verifyInput()) { return; }
-                // var encrypt = new JSEncrypt();
-                // encrypt.setPublicKey(this.$refs.publicKey.value);
-                // var encryptedPassword = encrypt.encrypt(this.password);
-                // const data = {
-                //     'username': this.username,
-                //     'email': this.email,
-                //     'password': encryptedPassword,
-                // };
-                // SignFetch.post('/api/register', data, this.$refs.token.value).then(function(response) {
-                //     if (response.data.result_code != 0) {
-                //         form.errorMsg = response.data.msg;
-                //     } else {
-                //         window.location = '/'
-                //     }
-                // }).catch(function(error){
-                //     form.errorMsg = '服务器异常';
-                // });
+                if (!this.verifyInput()) { return; }
+                var encrypt = new JSEncrypt();
+                encrypt.setPublicKey(this.$refs.publicKey.value);
+                var encryptedNewPassword = encrypt.encrypt(this.password);
+                var encryptedOldPassword = encrypt.encrypt(this.oldPassword);
+                const data = {
+                    'oldPassword': encryptedOldPassword,
+                    'newPassword': encryptedNewPassword,
+                };
+                SignFetch.post('/api/sign/password/update', data, this.$refs.token.value).then(function(response) {
+                    if (response.data.result_code != 0) {
+                        user.errorMsg = response.data.msg;
+                    } else {
+                        user.oldPassword = '';
+                        user.password = '';
+                        user.password2 = '';
+                        user.isSuccess = true;
+                        user.errorMsg = '';
+                    }
+                }).catch(function(error){
+                    user.errorMsg = '服务器异常';
+                });
             },
-            changeNotiConfig: function() {
-
+            changeNotiConfig: function(notificationState) {
+                if (notificationState == this.notificationState) { return; }
+                this.notificationState = notificationState;
+                let data = { 'notificationState': notificationState };
+                SignFetch.post('/api/sign/notification_state/update', data, this.$refs.token.value).then(function(response) {
+                    if (response.data.result_code != 0) {
+                        user.notiErrorMsg = response.data.msg;
+                    } else {
+                        user.notiErrorMsg = '';
+                    }
+                }).catch(function(error){
+                    user.notiErrorMsg = '服务器异常';
+                });
             },
         },
         filters: {
@@ -80,12 +101,16 @@ window.onload = function() {
             },
         },
     });
+    user.notificationState = user.$refs.originNotiState.value;
 };
 </script>
 {% endblock %}
 
 {% block content %}
 <div class="uk-flex" id="user-view">
+    <input ref="token" type="hidden" value="{[token]}">
+    <input ref="publicKey" type="hidden" value="{[public_key]}">
+    <input ref="originNotiState" type="hidden" value="{[notiState]}">
     <div class="uk-width-1-4">
         <ul class="uk-nav-default uk-nav-parent-icon" uk-nav="multiple: true">
             <li v-bind:class="{'uk-active': showingContent == 'detail'}">
@@ -131,6 +156,7 @@ window.onload = function() {
     <div v-show="showingContent == 'password'" style="flex: 1">
         <form v-on:submit="submitNewPassword" class="uk-form-horizontal uk-margin-large" onsubmit="return false">
             <div class="uk-alert uk-alert-danger" v-show="showError">{{errorMsg}}</div>
+            <div v-show="isSuccess && !showError" class="uk-alert uk-alert-success" v-show="showError">更新成功</div>
             <div class="uk-margin">
                 <label class="uk-form-label form-label">旧密码</label>
                 <div class="uk-form-controls">
@@ -157,10 +183,24 @@ window.onload = function() {
 
     <div v-show="showingContent == 'notification'" style="flex: 1">
         <div class="uk-margin">
+            <div class="uk-alert uk-alert-danger" v-show="showNotiError">{{notiErrorMsg}}</div>
             <label>商品价格变动时是否邮件通知我</label>
             <div style="margin-top: 15px">
-                <button class="uk-button uk-button-danger" style="margin-right: 15px">是</button>
-                <button class="uk-button uk-button-default">否</button>
+                <button
+                    v-on:click="changeNotiConfig('1')"
+                    v-bind:class="{'uk-button-danger': notificationState == '1', 'uk-button-default': notificationState == '0'}" 
+                    class="uk-button"
+                    style="margin-right: 15px"
+                >
+                    是
+                </button>
+                <button
+                    v-on:click="changeNotiConfig('0')"
+                    v-bind:class="{'uk-button-danger': notificationState == '0', 'uk-button-default': notificationState == '1'}" 
+                    class="uk-button"
+                >
+                    否
+                </button>
             </div>
         </div>
     </div>
