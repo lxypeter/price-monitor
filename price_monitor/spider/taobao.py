@@ -12,7 +12,7 @@ from urllib import parse
 import requests
 from bs4 import BeautifulSoup
 from price_monitor.models import MerchantType
-from .errors import APIQueryError, ItemUrlError
+from .errors import APIQueryError, ItemUrlError, InvalidItemError
 
 _HEADER = {
     'authority':'detailskip.taobao.com',
@@ -61,41 +61,94 @@ def fetch_item_url(url, **kw):
     item_soup = BeautifulSoup(item_resp.text, 'lxml')
 
     # 商品名
-    item_name = None
-    def name_filter(tag):
-        '''
-        过滤商品名标签
-        '''
-        return tag.has_attr('data-spm') or ('tb-main-title' in tag.get('class', []))
-    item_name_tags = item_soup.find_all(['h1', 'h3'])
-    for tag in item_name_tags:
-        if name_filter(tag):
-            item_name = ' '.join(tag.stripped_strings)
-    item['name'] = item_name
+    item['name'] = get_item_name(item_soup)
+    if item['name'] is None:
+        if not verify_validity(item_soup):
+            raise InvalidItemError(url, '商品无效或已下架', item_resp.text)
 
     # 商品图片
-    item_image_tag = item_soup.find('img', id='J_ImgBooth')
-    item_image = item_image_tag.get('src', '')
-    item_image = re.match(r'(/*)(.*)', item_image).groups()[1]
-    item['image_url'] = u'http://' + item_image
+    item['image_url'] = get_item_image_url(item_soup)
 
     # 店铺名
-    shop_name = ''
-    shop_name_tag = item_soup.find(['a', 'div'], class_=re.compile(r'slogo-shopname|shop-name-link|tb-shop-name'))
-    if shop_name_tag:
-        shop_name = ''.join(shop_name_tag.stripped_strings)
-    if url.find('chaoshi') > 0 and url.find('tmall') > 0:
-        shop_name = '天猫超市'
-    item['shop_name'] = shop_name
+    item['shop_name'] = get_item_shop_name(item_soup, url=url)
 
     # 价格
+    item['price'] = get_item_def_price(item_soup)
+
+    # sku tag
+    (sku_dict, sku_groups) = get_item_sku(item_soup)
+    item['sku_dict'] = sku_dict
+    item['sku_groups'] = sku_groups
+
+    # 查询商品详情
+    detail_qry_url = _DETAIL_QRY_URL + item_id
+    detail_resp = requests.get(detail_qry_url, headers=_HEADER)
+    detail_dict = json.loads(detail_resp.text)
+    detail_result_code = detail_dict.get('code').get('code', -1)
+    try:
+        if detail_result_code != 0:
+            raise APIQueryError(detail_qry_url,
+                                '淘宝商品详情查询失败 - item_id = ' + item_id,
+                                detail_resp.text)
+        # 发货地
+        item['send_city'] = get_item_send_city(detail_dict)
+
+        # 价格及库存
+        item['prices'] = get_item_prices(item_soup, detail_dict, sku_dict, is_tmall)
+    except Exception as error:
+        raise error
+    return item
+
+def get_item_name(item_soup):
+    '''
+    获取商品名称
+    '''
+    item_name = None
+    item_name_tags = item_soup.find_all(['h1', 'h3'])
+    for tag in item_name_tags:
+        if tag.has_attr('data-spm') or ('tb-main-title' in tag.get('class', [])):
+            item_name = ' '.join(tag.stripped_strings)
+    return item_name
+
+def get_item_image_url(item_soup):
+    '''
+    获取商品图片
+    '''
+    image_url = None
+    item_image_tag = item_soup.find('img', id='J_ImgBooth')
+    if not item_image_tag is None:
+        item_image = item_image_tag.get('src', '')
+        item_image = re.match(r'(/*)(.*)', item_image).groups()[1]
+        image_url = u'http://' + item_image
+    return image_url
+
+def get_item_shop_name(item_soup, **kw):
+    '''
+    获取店铺名称
+    '''
+    shop_name = None
+    shop_name_tag = item_soup.find(['a', 'div'],
+                                   class_=re.compile(r'slogo-shopname|shop-name-link|tb-shop-name'))
+    if shop_name_tag:
+        shop_name = ''.join(shop_name_tag.stripped_strings)
+    if kw['url'].find('chaoshi') > 0 and kw['url'].find('tmall') > 0:
+        shop_name = '天猫超市'
+    return shop_name
+
+def get_item_def_price(item_soup):
+    '''
+    获取默认显示价格
+    '''
     price = '0.00'
     price_tag = item_soup.find(['em', 'span'], class_=re.compile(r'tb-rmb-num|tm-price'))
     if price_tag:
         price = price_tag.string
-    item['price'] = price
+    return price
 
-    # sku tag
+def get_item_sku(item_soup):
+    '''
+    获取商品规格组
+    '''
     sku_tags = item_soup.find_all('dl', class_=re.compile(r'(J_Prop tb-prop tb-clear|tb-prop tm-sale-prop tm-clear)(.*)'))
     sku_dict = None
     sku_groups = None
@@ -121,74 +174,77 @@ def fetch_item_url(url, **kw):
                 sku_dict[li_tag.get('data-value', '')] = li_tag.find('span').text.strip()
             sku_group['pvs'] = sku_pvs
             sku_groups.append(sku_group)
-    item['sku_dict'] = sku_dict
-    item['sku_groups'] = sku_groups
+    return sku_dict, sku_groups
 
-    # 查询商品详情
-    detail_qry_url = _DETAIL_QRY_URL + item_id
-    detail_resp = requests.get(detail_qry_url, headers=_HEADER)
-    detail_dict = json.loads(detail_resp.text)
-    detail_result_code = detail_dict.get('code').get('code', -1)
-    try:
-        if detail_result_code != 0:
-            raise APIQueryError(detail_qry_url, '淘宝商品详情查询失败 - item_id = ' + item_id, detail_resp.text)
-        # 发货地
-        send_city = detail_dict.get('data').get('deliveryFee').get('data').get('sendCity')
-        item['send_city'] = send_city
+def get_item_send_city(detail_dict):
+    '''
+    获取发货地
+    '''
+    send_city = detail_dict.get('data').get('deliveryFee').get('data').get('sendCity')
+    return send_city
 
-        # 价格及库存
-        prices = None
-        if is_tmall and sku_dict:
-            '''
-            天猫
-            '''
-            sku_script = item_soup.find('script', text=re.compile(r'TShop.Setup'))
-            sku_str = re.sub(r'\r|\n|\t', '', sku_script.text)
-            sku_json_str = re.search(r'(TShop.Setup\()(.*)(\);}\)\(\);)', sku_str)[2]
-            sku_json = json.loads(sku_json_str)
-            sku_list = sku_json.get('valItemInfo').get('skuList')
-            sku_map = sku_json.get('valItemInfo').get('skuMap')
-            for sku_info in sku_list:
-                key = ';' + sku_info['pvs'] + ';'
-                sku_info.update(sku_map.get(key, {}))
-            prices = sku_list
-        else:
-            '''
-            普通商家
-            '''
-            prices = []
-            price_dict = detail_dict.get('data').get('originalPrice')
-            stock_dict = detail_dict.get('data').get('dynStock', {}).get('sku', {})
-            for key, value in price_dict.items():
-                sku_desc = []
-                sku_info = {}
-                sku_info['price'] = value.get('price', '0.00')
-                if key == 'def':
-                    sku_info['pvs'] = 'def'
-                    sku_info['sellableQuantity'] = detail_dict.get('data').get('dynStock', {}).get('sellableQuantity', '0')
-                    sku_info['stock'] = detail_dict.get('data').get('dynStock', {}).get('stock', '0')
-                else:
-                    sku_pvs = key.strip(';')
-                    sku_info['pvs'] = sku_pvs
-                    sku_keys = sku_pvs.split(';')
-                    for sku_key in sku_keys:
-                        sku_desc.append(sku_dict.get(sku_key, ''))
-                    sku_info['names'] = ' '.join(sku_desc)
+def get_item_prices(item_soup, detail_dict, sku_dict, is_tmall):
+    '''
+    获取商品不同规格下价格
+    '''
+    prices = None
+    if is_tmall and sku_dict:
+        '''
+        天猫
+        '''
+        sku_script = item_soup.find('script', text=re.compile(r'TShop.Setup'))
+        sku_str = re.sub(r'\r|\n|\t', '', sku_script.text)
+        sku_json_str = re.search(r'(TShop.Setup\()(.*)(\);}\)\(\);)', sku_str)[2]
+        sku_json = json.loads(sku_json_str)
+        sku_list = sku_json.get('valItemInfo').get('skuList')
+        sku_map = sku_json.get('valItemInfo').get('skuMap')
+        for sku_info in sku_list:
+            key = ';' + sku_info['pvs'] + ';'
+            sku_info.update(sku_map.get(key, {}))
+        prices = sku_list
+    else:
+        '''
+        普通商家
+        '''
+        prices = []
+        price_dict = detail_dict.get('data').get('originalPrice')
+        stock_dict = detail_dict.get('data').get('dynStock', {}).get('sku', {})
+        for key, value in price_dict.items():
+            sku_desc = []
+            sku_info = {}
+            sku_info['price'] = value.get('price', '0.00')
+            if key == 'def':
+                sku_info['pvs'] = 'def'
+                sku_info['sellableQuantity'] = detail_dict.get('data').get('dynStock', {}).get('sellableQuantity', '0')
+                sku_info['stock'] = detail_dict.get('data').get('dynStock', {}).get('stock', '0')
+            else:
+                sku_pvs = key.strip(';')
+                sku_info['pvs'] = sku_pvs
+                sku_keys = sku_pvs.split(';')
+                for sku_key in sku_keys:
+                    sku_desc.append(sku_dict.get(sku_key, ''))
+                sku_info['names'] = ' '.join(sku_desc)
 
-                sku_info.update(stock_dict.get(key, {}))
-                prices.append(sku_info)
+            sku_info.update(stock_dict.get(key, {}))
+            prices.append(sku_info)
 
-        # 促销价
-        pmt_data = detail_dict.get('data').get('promotion').get('promoData')
-        for key, value in pmt_data.items():
-            for info in prices:
-                if key == info.get('pvs', '') and value[0].get('price', None) != None:
-                    info['price'] = value[0].get('price', None)
-        item['prices'] = prices
-    except Exception as error:
-        raise error
-    # print(item)
-    return item
+    # 促销价
+    pmt_data = detail_dict.get('data').get('promotion').get('promoData')
+    for key, value in pmt_data.items():
+        for info in prices:
+            if key == info.get('pvs', '') and value[0].get('price', None) != None:
+                info['price'] = value[0].get('price', None)
+    return prices
+
+def verify_validity(item_soup):
+    '''
+    验证商品有效性
+    '''
+    error_tags = item_soup.find('div', class_=re.compile(r'errorDetail|error-notice-text'))
+    error_content = error_tags.get_text()
+    if re.search(r'找不到|下架|不存在', error_content):
+        return False
+    return True
 
 # test_url = 'https://item.taobao.com/item.htm?spm=a230r.1.14.132.766fec1cYSS30p&id=558541926182&ns=1&abbucket=3#detail'
 # test_url = 'https://detail.tmall.com/item.htm?spm=a230r.1.14.8.3dcf775f9YLkrD&id=555423143452&cm_id=140105335569ed55e27b&abbucket=3'

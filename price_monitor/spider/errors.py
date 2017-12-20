@@ -24,3 +24,13 @@ class APIQueryError(Exception):
         self.url = url
         self.message = message
         self.body = body
+
+class InvalidItemError(Exception):
+    '''
+    商品无效或下架
+    '''
+    def __init__(self, url='', message='', body=''):
+        super(InvalidItemError, self).__init__(message)
+        self.url = url
+        self.message = message
+        self.body = body

@@ -51,7 +51,16 @@
     color: #3d3d3d;
     text-decoration: none;
 }
-
+.item-card .invalid-mask {
+    justify-content: center;
+    position: absolute;
+    top: 0px;
+    right: 0px;
+    bottom: 0px;
+    left: 0px;
+    padding-top: 75px;
+    background: rgba(255, 255, 255, 0.5);
+}
 .model-group-button {
     margin-right: 3px;
     margin-bottom: 1px;
@@ -72,8 +81,11 @@
     <input ref="token" type="hidden" value="{[token]}">
     <div class="item-card-container">
         <div v-for="item in items" class="uk-card uk-card-default uk-card-hover uk-card-body item-card">
-            <a v-on:click="disconnectItem(item)" class="item-close" href="javascript: void(0)" :uk-close="'uk-close'"></a>
+            <a v-on:click="disconnectItem(item)" class="item-close" href="javascript: void(0)" style="z-index: 999" :uk-close="'uk-close'"></a>
             <a v-on:click="showDetail(item)" style="text-decoration: none; cursor: pointer" href="javascript: void(0)">
+                <div v-show="item.state != '00'" class="uk-flex invalid-mask">
+                    <div class="uk-text-lead">商品已失效</div>
+                </div>
                 <img class="item-image" v-bind:src="item.image_url"/>
                 <div style="padding: 10px">
                     <div class="price-text">

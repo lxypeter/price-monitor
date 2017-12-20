@@ -5,10 +5,12 @@ item section
 '''
 
 import logging
+import json
 from datetime import datetime
+import redis
+from flask import Blueprint, request, jsonify, session, render_template
 from price_monitor.spider import taobao
-from flask import Blueprint, request, jsonify, session, redirect, render_template, url_for
-from price_monitor.models import ResponseBody, ResultCode, get_db, next_id, ItemState
+from price_monitor.models import ResponseBody, ResultCode, get_db, next_id, ItemState, REDIS_POOL, RedisKey, RedisItem
 from price_monitor.util.verify_util import contain_empty_str
 from .errors import SQLError
 from .users import need_login
@@ -78,15 +80,15 @@ def api_store_item():
         cursor.execute(query_item_sql, (item_id, mall_type))
         items = cursor.fetchall()
         if not items:
+            item_p_id = next_id()
             try:
-                item_p_id = next_id()
                 item_sql = '''
                            insert into item
                            (id, item_id, mall_type, url, name, image_url, shop_name, state, send_city, create_time, monitor_num)
                            values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 1)
                            '''
                 item_sql_params = (item_p_id, item_id, mall_type, url, name,
-                                   image_url, shop_name, ItemState.Valid.value,
+                                   image_url, shop_name, ItemState.Valid,
                                    send_city, nowtime)
                 cursor.execute(item_sql, item_sql_params)
                 if cursor.rowcount < 1:
@@ -113,7 +115,10 @@ def api_store_item():
                                              pvs, price, stock, nowtime)
                     cursor.execute(item_price_sql, item_price_sql_params)
                     if cursor.rowcount < 1:
-                        raise SQLError(ResultCode.Insert_Error, item_price_sql, item_price_sql_params, '商品缓存失败')
+                        raise SQLError(ResultCode.Insert_Error,
+                                       item_price_sql,
+                                       item_price_sql_params,
+                                       '商品缓存失败')
 
                 # store pvs record
                 for group in sku_groups:
@@ -127,15 +132,23 @@ def api_store_item():
                                   '''
                         pvs_name = sku.get('name', '')
                         sku_pvs = sku.get('pvs', '')
-                        sku_sql_params = (next_id(), item_p_id, group_id, group_name, pvs_name, sku_pvs)
+                        sku_sql_params = (next_id(), item_p_id, group_id,
+                                          group_name, pvs_name, sku_pvs)
                         cursor.execute(sku_sql, sku_sql_params)
                         if cursor.rowcount < 1:
-                            raise SQLError(ResultCode.Insert_Error, sku_sql, sku_sql_params, '商品缓存失败')
+                            raise SQLError(ResultCode.Insert_Error,
+                                           sku_sql,
+                                           sku_sql_params,
+                                           '商品缓存失败')
             except SQLError as error:
                 resp.result_code = error.code
                 resp.msg = error.message
                 return jsonify(resp.to_dict())
 
+            # cache to redis
+            re_conn = redis.Redis(connection_pool=REDIS_POOL)
+            redis_item_str = RedisItem(item_p_id, name, url, mall_type).redis_str()
+            re_conn.sadd(RedisKey.VALID_ITEMS, redis_item_str)
         # check whether item has been connected with user
         query_user_sql = '''
                          select a.item_p_id from user_item a, item b
@@ -197,9 +210,12 @@ def api_disconnect_item():
             delete_connection_params = (user['user_id'], item_p_id)
             cursor.execute(delete_connection_sql, delete_connection_params)
             if cursor.rowcount < 1:
-                raise SQLError(ResultCode.Delete_Error, delete_connection_sql, delete_connection_params, '商品删除失败')
+                raise SQLError(ResultCode.Delete_Error,
+                               delete_connection_sql,
+                               delete_connection_params,
+                               '商品删除失败')
 
-            query_item_sql = 'select monitor_num from item where id=%s'
+            query_item_sql = 'select url, mall_type, name, monitor_num from item where id=%s'
             cursor.execute(query_item_sql, (item_p_id,))
             item = cursor.fetchall()[0]
             if item['monitor_num'] > 1:
@@ -215,6 +231,14 @@ def api_disconnect_item():
 
                 delete_price_sql = 'delete from item_price where item_p_id=%s'
                 cursor.execute(delete_price_sql, (item_p_id,))
+
+                # remove from redis
+                re_conn = redis.Redis(connection_pool=REDIS_POOL)
+                redis_item_str = RedisItem(item_p_id,
+                                           item['name'],
+                                           item['url'],
+                                           item['mall_type']).redis_str()
+                re_conn.srem(RedisKey.VALID_ITEMS, redis_item_str)
         except SQLError as error:
             resp.result_code = error.code
             resp.msg = error.message
@@ -230,7 +254,7 @@ def query_items():
     with connection.cursor() as cursor:
         query_item_sql = '''
                          select b.id, b.mall_type, b.item_id, b.name, b.url, b.image_url,
-                         b.shop_name, b.send_city 
+                         b.shop_name, b.send_city, b.state
                          from user_item a left outer join item b on a.item_p_id = b.id
                          where a.user_id = %s
                          '''

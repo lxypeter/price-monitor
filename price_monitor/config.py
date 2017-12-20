@@ -21,3 +21,7 @@ class DefalutConfig(object):
     }
     UNLOGINED_TOKEN = 'DEVELOPMENT_UNLOGINED_TOKEN'
     LOGINED_TOKEN = 'DEVELOPMENT_LOGINED_TOKEN'
+    EMAIL_SERVER = {
+        'HOST': 'smtp.sina.com',
+        'PORT': '25',
+    }

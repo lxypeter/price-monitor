@@ -9,6 +9,7 @@ __author__ = 'CY Lee'
 import logging
 import time
 import uuid
+import json
 from enum import Enum, unique
 from flask import g
 import pymysql.cursors
@@ -81,8 +82,7 @@ class MerchantType(object):
     Taobao = 'T'
     Tmall = 'TM'
 
-@unique
-class ItemState(Enum):
+class ItemState(object):
     '''
     enum of item state
     '''
@@ -114,3 +114,25 @@ class RedisKey(object):
     constants of redis key
     '''
     VALID_ITEMS = 'valid_items'
+
+class RedisItem(object):
+    '''
+    item structure for redis
+    '''
+    __slots__ = ('item_p_id', 'url', 'mall_type', 'name')
+    def __init__(self, item_p_id, name, url, mall_type):
+        self.item_p_id = item_p_id
+        self.name = name
+        self.url = url
+        self.mall_type = mall_type
+
+    def redis_str(self):
+        '''
+        json str for redis store
+        '''
+        redis_item = dict()
+        redis_item['id'] = self.item_p_id
+        redis_item['url'] = self.url
+        redis_item['mall_type'] = self.mall_type
+        redis_item['name'] = self.name
+        return json.dumps(redis_item, ensure_ascii=False, separators=(',', ':'), sort_keys=True)
