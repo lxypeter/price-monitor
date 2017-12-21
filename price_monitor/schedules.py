@@ -6,16 +6,17 @@ server's schedule task
 
 __author__ = 'CY Lee'
 
+import os
 import json
 from datetime import datetime
-from email import encoders
 from email.header import Header
 from email.mime.text import MIMEText
 from email.utils import parseaddr, formataddr
 import smtplib
 import redis
+from jinja2 import Environment, FileSystemLoader
 from price_monitor.spider import taobao, errors
-from .config import DefalutConfig
+from config.config import CONFIG
 from .models import connect_db, RedisKey, MerchantType, REDIS_POOL, next_id, ItemState
 
 def update_item_info():
@@ -26,7 +27,7 @@ def update_item_info():
     re_conn = redis.Redis(connection_pool=REDIS_POOL)
     valid_items = re_conn.smembers(RedisKey.VALID_ITEMS)
 
-    connection = connect_db(DefalutConfig.DB)
+    connection = connect_db(CONFIG.DB)
     for item_byte in valid_items:
         item_json_str = item_byte.decode()
         item = json.loads(item_json_str)
@@ -51,20 +52,22 @@ def update_item_info():
             old_item_prices_sql1 = "set @num := 0, @pvs := ''"
             cursor.execute(old_item_prices_sql1, ())
             old_item_prices_sql2 = '''
-                                   select pvs, price, updated_time
-                                   from (
-                                   select pvs, price, updated_time, @num := if (@pvs = pvs, @num + 1, 1) as row_number, @pvs := pvs as dummy 
-                                   from item_price
-                                   where item_p_id = %s
-                                   order by pvs asc, updated_time desc
-                                   ) as x where x.row_number = 1
-                                   '''
+                                    select pvs, price, updated_time
+                                    from (
+                                    select pvs, price, updated_time, @num := if (@pvs = pvs, @num + 1, 1) as row_number, @pvs := pvs as dummy 
+                                    from item_price
+                                    where item_p_id = %s
+                                    order by pvs asc, updated_time desc
+                                    ) as x where x.row_number = 1
+                                    '''
             cursor.execute(old_item_prices_sql2, (item['id'],))
             old_item_prices = cursor.fetchall()
             # convert the result to dict, for further search
             old_price_dict = dict()
             for old_price in old_item_prices:
                 old_price_dict[old_price['pvs']] = old_price
+
+            updated_item = None
             # compare new prices to old prices. if there is any different, insert the new record
             for new_price in new_item_info['prices']:
                 old_price = old_price_dict.get(new_price['pvs'], None)
@@ -81,6 +84,31 @@ def update_item_info():
                     new_price_sql_params = (next_id(), item['id'], info_name,
                                             pvs, price, stock, nowtime)
                     cursor.execute(new_price_sql, new_price_sql_params)
+
+                    if updated_item is None:
+                        updated_item = dict()
+                        updated_item['id'] = item['id']
+                        updated_item['url'] = item['url']
+                        updated_item['name'] = item['name']
+                        updated_item['image_url'] = item['image_url']
+                        updated_item['updated_time'] = nowtime.strftime('%Y-%m-%d %H:%M:%S')
+                        updated_item['updated_prices'] = []
+                    item_price_update = dict()
+                    item_price_update['name'] = info_name
+                    if old_price:
+                        item_price_update['old_price'] = old_price['price']
+                    else:
+                        item_price_update['old_price'] = None
+                    item_price_update['new_price'] = new_price['price']
+                    updated_item['updated_prices'].append(item_price_update)
+            # cache updated item in redis, for email reminder
+            if updated_item:
+                updated_item_json = json.dumps(updated_item,
+                                                ensure_ascii=False,
+                                                separators=(',', ':'),
+                                                sort_keys=True)
+                re_conn.sadd(RedisKey.UPDATED_ITEMS, updated_item_json)
+
             # compare pvs
             old_item_pvs_sql = 'select name, pvs from item_pvs where item_p_id = %s'
             cursor.execute(old_item_pvs_sql, (item['id'],))
@@ -96,40 +124,62 @@ def update_item_info():
                         break
                 if not has_pvs_exist:
                     sku_sql = '''
-                              insert into item_pvs
-                              (id, item_p_id, group_id, name, pvs)
-                              values (%s, %s, %s, %s, %s)
-                              '''
+                            insert into item_pvs
+                            (id, item_p_id, group_id, name, pvs)
+                            values (%s, %s, %s, %s, %s)
+                            '''
                     pvs_name = value
                     sku_pvs = key
                     group_id = key.split(':')[0]
                     sku_sql_params = (next_id(), item['id'], group_id, pvs_name, sku_pvs)
                     cursor.execute(sku_sql, sku_sql_params)
             connection.commit()
+    connection.close()
 
 def send_reminder_emails():
-    # 不能简单地传入name <addr@example.com>，因为如果包含中文，需要通过Header对象进行编码
-    def _format_addr(s):
-        name, addr = parseaddr(s)
+    '''
+    get updated item list and send email to user
+    '''
+    # get updated item list from redis
+    re_conn = redis.Redis(connection_pool=REDIS_POOL)
+    updated_items = re_conn.smembers(RedisKey.UPDATED_ITEMS)
+
+    # email basic setting
+    def _format_addr(email_str):
+        '''
+        convert email address from str like: nickname <email@address.com>
+        '''
+        name, addr = parseaddr(email_str)
         return formataddr((Header(name, 'utf-8').encode(), addr))
-    # 输入Email地址和口令:
-    from_addr = input('From: ')
-    password = input('Password: ')
-    # 输入收件人地址:
-    to_addr = input('To: ')
-    # 输入SMTP服务器地址:
-    smtp_server = input('SMTP server: ')
+    server = smtplib.SMTP(CONFIG.EMAIL_SERVER['HOST'], CONFIG.EMAIL_SERVER['PORT'])
+    server.set_debuglevel(1)
+    account_addr = CONFIG.EMAIL_ACCOUNT['ADDR']
+    server.login(account_addr, CONFIG.EMAIL_ACCOUNT['PASSWORD'])
 
-    # &0就是邮件正文，&1是MIME的subtype，传入'plain'表示纯文本
-    msg = MIMEText('hello, send by Python...', 'plain', 'utf-8')
-    msg['From'] = _format_addr('Python爱好者 <%s>' % from_addr)
-    # 是字符串而不是list，如果有多个邮件地址，用,分隔即可
-    msg['To'] = _format_addr('管理员 <%s>' % to_addr)
-    msg['Subject'] = Header('来自SMTP的问候……', 'utf-8').encode()
+    options = dict(variable_start_string='{[', variable_end_string=']}')
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'templates')
+    env = Environment(loader=FileSystemLoader(path), **options)
 
-    server = smtplib.SMTP(DefalutConfig.EMAIL_SERVER['HOST'], DefalutConfig.EMAIL_SERVER['PORT'])
+    connection = connect_db(CONFIG.DB)
+    with connection.cursor() as cursor:
+        for item_byte in updated_items:
+            item_json_str = item_byte.decode()
+            item = json.loads(item_json_str)
 
-    server.set_debuglevel(1) # 打印出和SMTP服务器交互的所有信息
-    server.login(from_addr, password) 
-    server.sendmail(from_addr, [to_addr], msg.as_string())
+            monitor_users_sql = '''
+                                select b.nickname, b.email
+                                from user_item a left outer join user b on a.user_id = b.id
+                                where a.item_p_id = %s
+                                '''
+            cursor.execute(monitor_users_sql, (item['id'],))
+            users = cursor.fetchall()
+            mail_body = env.get_template('email_body.html').render(item=item).encode('utf-8')
+            
+            for user in users:
+                msg = MIMEText(mail_body, 'html', 'utf-8')
+                msg['From'] = _format_addr('%s <%s>' % (CONFIG.EMAIL_ACCOUNT['NAME'], account_addr))
+                msg['To'] = _format_addr('%s <%s>' % (user['nickname'], user['email']))
+                msg['Subject'] = Header('等价：您关注的商品: %s 价格有所变动' % item['name'], 'utf-8').encode()
+                server.sendmail(CONFIG.EMAIL_ACCOUNT['ADDR'], [user['email']], msg.as_string())
     server.quit()
+    connection.close()

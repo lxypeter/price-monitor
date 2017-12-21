@@ -14,10 +14,10 @@ from enum import Enum, unique
 from flask import g
 import pymysql.cursors
 import redis
-from .config import DefalutConfig
+from config.config import CONFIG
 
-REDIS_POOL = redis.ConnectionPool(host=DefalutConfig.REDIS['HOST'],
-                                  port=DefalutConfig.REDIS['PORT'])
+REDIS_POOL = redis.ConnectionPool(host=CONFIG.REDIS['HOST'],
+                                  port=CONFIG.REDIS['PORT'])
 
 def connect_db(db_config):
     '''
@@ -38,7 +38,7 @@ def get_db():
     get database connection, create if not exist
     '''
     if not hasattr(g, 'sql_db'):
-        db_config = DefalutConfig.DB
+        db_config = CONFIG.DB
         g.sql_db = connect_db(db_config)
     return g.sql_db
 
@@ -114,17 +114,19 @@ class RedisKey(object):
     constants of redis key
     '''
     VALID_ITEMS = 'valid_items'
+    UPDATED_ITEMS = 'updated_items'
 
 class RedisItem(object):
     '''
     item structure for redis
     '''
-    __slots__ = ('item_p_id', 'url', 'mall_type', 'name')
-    def __init__(self, item_p_id, name, url, mall_type):
+    __slots__ = ('item_p_id', 'url', 'mall_type', 'name', 'image_url')
+    def __init__(self, item_p_id, name, url, mall_type, image_url):
         self.item_p_id = item_p_id
         self.name = name
         self.url = url
         self.mall_type = mall_type
+        self.image_url = image_url
 
     def redis_str(self):
         '''
@@ -135,4 +137,5 @@ class RedisItem(object):
         redis_item['url'] = self.url
         redis_item['mall_type'] = self.mall_type
         redis_item['name'] = self.name
+        redis_item['image_url'] = self.image_url
         return json.dumps(redis_item, ensure_ascii=False, separators=(',', ':'), sort_keys=True)

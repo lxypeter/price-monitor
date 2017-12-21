@@ -1,8 +1,12 @@
 # -*- coding: utf-8 -*-
 
+'''
+default configuration
+'''
+
 __author__ = 'CY Lee'
 
-class DefalutConfig(object):
+class DefaultConfig(object):
     '''
     Default configurations.
     '''
@@ -23,5 +27,10 @@ class DefalutConfig(object):
     LOGINED_TOKEN = 'DEVELOPMENT_LOGINED_TOKEN'
     EMAIL_SERVER = {
         'HOST': 'smtp.sina.com',
-        'PORT': '25',
+        'PORT': 25,
+    }
+    EMAIL_ACCOUNT = {
+        'NAME': '等价',
+        'ADDR': 'example@sina.com',
+        'PASSWORD': 'example',
     }

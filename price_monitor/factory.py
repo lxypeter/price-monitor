@@ -14,12 +14,12 @@ import json
 import redis
 from flask import Flask, g, request, make_response, session
 from apscheduler.schedulers.background import BackgroundScheduler
+from config.config import CONFIG
 from .models import connect_db, RedisKey, REDIS_POOL, ItemState, RedisItem
 from .blueprints.users import bp_users, bp_users_api
 from .blueprints.items import bp_items, bp_items_api
 from .util.encrypt_util import rsa_create_keys
-from .config import DefalutConfig
-from .schedules import update_item_info
+from .schedules import update_item_info, send_reminder_emails
 
 def create_app():
     '''
@@ -28,8 +28,7 @@ def create_app():
     logging.basicConfig(level=logging.INFO)
     # init app and load configuration
     app = Flask(__name__, instance_relative_config=True)
-    app.config.from_object(DefalutConfig)
-    app.config.from_pyfile('config.py')
+    app.config.from_object(CONFIG)
     keys = rsa_create_keys()
     app.config.update({
         'RSA_PUBLIC_KEY': keys[1],
@@ -97,21 +96,23 @@ def register_redis():
     init redis
     '''
     # cache valid items
-    connection = connect_db(DefalutConfig.DB)
+    connection = connect_db(CONFIG.DB)
     with connection.cursor() as cursor:
         valid_items_sql = '''
-                          select id, url, mall_type, name 
+                          select id, url, mall_type, name, image_url 
                           from item where monitor_num > 0 and state = %s
                           '''
         cursor.execute(valid_items_sql, (ItemState.Valid,))
         valid_items = cursor.fetchall()
         re_pipe = redis.Redis(connection_pool=REDIS_POOL).pipeline(transaction=True)
         re_pipe.delete(RedisKey.VALID_ITEMS)
+        re_pipe.delete(RedisKey.UPDATED_ITEMS)
         for item in valid_items:
             item_json = RedisItem(item['id'],
                                   item['name'],
                                   item['url'],
-                                  item['mall_type']).redis_str()
+                                  item['mall_type'],
+                                  item['image_url']).redis_str()
             re_pipe.sadd(RedisKey.VALID_ITEMS, item_json)
         re_pipe.execute()
 
@@ -120,7 +121,8 @@ def register_scheduler():
     register scheduler
     '''
     scheduler = BackgroundScheduler()
-    scheduler.add_job(update_item_info, 'interval', minutes=30)
+    scheduler.add_job(update_item_info, 'interval', minutes=15)
+    scheduler.add_job(send_reminder_emails, 'interval', minutes=15)
     scheduler.start()
 
 def verify_sign(app):

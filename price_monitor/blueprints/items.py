@@ -147,7 +147,7 @@ def api_store_item():
 
             # cache to redis
             re_conn = redis.Redis(connection_pool=REDIS_POOL)
-            redis_item_str = RedisItem(item_p_id, name, url, mall_type).redis_str()
+            redis_item_str = RedisItem(item_p_id, name, url, mall_type, image_url).redis_str()
             re_conn.sadd(RedisKey.VALID_ITEMS, redis_item_str)
         # check whether item has been connected with user
         query_user_sql = '''
@@ -215,7 +215,7 @@ def api_disconnect_item():
                                delete_connection_params,
                                '商品删除失败')
 
-            query_item_sql = 'select url, mall_type, name, monitor_num from item where id=%s'
+            query_item_sql = 'select url, mall_type, name, monitor_num, image_url from item where id=%s'
             cursor.execute(query_item_sql, (item_p_id,))
             item = cursor.fetchall()[0]
             if item['monitor_num'] > 1:
@@ -237,7 +237,8 @@ def api_disconnect_item():
                 redis_item_str = RedisItem(item_p_id,
                                            item['name'],
                                            item['url'],
-                                           item['mall_type']).redis_str()
+                                           item['mall_type'],
+                                           item['image_url']).redis_str()
                 re_conn.srem(RedisKey.VALID_ITEMS, redis_item_str)
         except SQLError as error:
             resp.result_code = error.code
