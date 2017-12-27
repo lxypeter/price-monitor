@@ -104,9 +104,9 @@ def update_item_info():
             # cache updated item in redis, for email reminder
             if updated_item:
                 updated_item_json = json.dumps(updated_item,
-                                                ensure_ascii=False,
-                                                separators=(',', ':'),
-                                                sort_keys=True)
+                                               ensure_ascii=False,
+                                               separators=(',', ':'),
+                                               sort_keys=True)
                 re_conn.sadd(RedisKey.UPDATED_ITEMS, updated_item_json)
 
             # compare pvs
@@ -143,6 +143,7 @@ def send_reminder_emails():
     # get updated item list from redis
     re_conn = redis.Redis(connection_pool=REDIS_POOL)
     updated_items = re_conn.smembers(RedisKey.UPDATED_ITEMS)
+    re_pipe = re_conn.pipeline(transaction=True)
 
     # email basic setting
     def _format_addr(email_str):
@@ -152,7 +153,7 @@ def send_reminder_emails():
         name, addr = parseaddr(email_str)
         return formataddr((Header(name, 'utf-8').encode(), addr))
     server = smtplib.SMTP(CONFIG.EMAIL_SERVER['HOST'], CONFIG.EMAIL_SERVER['PORT'])
-    server.set_debuglevel(1)
+    # server.set_debuglevel(1)
     account_addr = CONFIG.EMAIL_ACCOUNT['ADDR']
     server.login(account_addr, CONFIG.EMAIL_ACCOUNT['PASSWORD'])
 
@@ -174,12 +175,14 @@ def send_reminder_emails():
             cursor.execute(monitor_users_sql, (item['id'],))
             users = cursor.fetchall()
             mail_body = env.get_template('email_body.html').render(item=item).encode('utf-8')
-            
+
             for user in users:
                 msg = MIMEText(mail_body, 'html', 'utf-8')
                 msg['From'] = _format_addr('%s <%s>' % (CONFIG.EMAIL_ACCOUNT['NAME'], account_addr))
                 msg['To'] = _format_addr('%s <%s>' % (user['nickname'], user['email']))
                 msg['Subject'] = Header('等价：您关注的商品: %s 价格有所变动' % item['name'], 'utf-8').encode()
                 server.sendmail(CONFIG.EMAIL_ACCOUNT['ADDR'], [user['email']], msg.as_string())
+            re_pipe.srem(RedisKey.UPDATED_ITEMS, item_json_str)
+    re_pipe.execute()
     server.quit()
     connection.close()

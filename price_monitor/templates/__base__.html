@@ -7,7 +7,11 @@
     <link rel="stylesheet" href="/static/css/uikit.min.css" />
     <script src="/static/js/uikit/uikit.min.js"></script>
     <script src="/static/js/uikit/uikit-icons.min.js"></script>
+    {% if config['DEBUG'] %}
     <script src="/static/js/vue.js"></script>
+    {% else %}
+    <script src="/static/js/vue.min.js"></script>
+    {% endif%}
     <script src="/static/js/axios/axios.min.js"></script>
     <script src="/static/js/sha1.min.js"></script>
     <script src="/static/js/jsencrypt.min.js"></script>

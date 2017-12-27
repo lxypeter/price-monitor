@@ -102,3 +102,9 @@ ENV/
 
 # instance config
 /config/instance.py
+
+#fab
+/fabfile.py
+
+#server
+/server

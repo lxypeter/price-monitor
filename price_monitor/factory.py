@@ -132,8 +132,10 @@ def verify_sign(app):
     date_str = request.headers['date-str']
     # valid request in 60s
     header_ts = datetime.strptime(date_str, '%Y-%m-%d %H:%M:%S').timestamp()
-    current_ts = datetime.now().timestamp()
+    # header_ts = float(date_str)
+    current_ts = datetime.utcnow().timestamp()
     if abs(header_ts - current_ts) > 60:
+        logging.error('hearder_time:' + str(header_ts) + '====' + 'server_time:' + str(current_ts))
         return make_response(('Overtime Request', 500))
     # verify sign
     keys = list(dict(request.json).keys())

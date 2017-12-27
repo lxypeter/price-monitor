@@ -95,8 +95,12 @@ def fetch_item_url(url, **kw):
 
         # 价格及库存
         item['prices'] = get_item_prices(item_soup, detail_dict, sku_dict, is_tmall)
-    except Exception as error:
+    except APIQueryError as error:
         raise error
+    except Exception as error:
+        raise APIQueryError(detail_qry_url,
+                            '淘宝商品详情查询失败 - body = ' + detail_resp.text,
+                            detail_resp.text)
     return item
 
 def get_item_name(item_soup):

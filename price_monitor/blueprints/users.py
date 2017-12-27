@@ -102,7 +102,7 @@ def api_register():
         sql = '''
                 insert into user
                 (id, username, email, password, nickname, gender, notification_state, create_time)
-                values (%s, %s, %s, %s, %s, %s, %s)
+                values (%s, %s, %s, %s, %s, %s, %s, %s)
                 '''
         hash_password = username + email + origin_password
         md5 = hashlib.md5()

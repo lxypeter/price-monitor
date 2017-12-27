@@ -59,12 +59,30 @@ DateUtil = {
         const seconds = data.getSeconds();
         const secondsStr = seconds < 10 ? `0${seconds}` : `${seconds}`;
         return `${year}-${monStr}-${dayStr} ${hourStr}:${minutesStr}:${secondsStr}`;
-    }
+    },
+    currentUTCTimeStr: function() {
+        const data = new Date();
+        const year = data.getUTCFullYear();
+        const mon = data.getUTCMonth() + 1;
+        const monStr = mon < 10 ? `0${mon}` : `${mon}`;
+        const day = data.getUTCDate();
+        const dayStr = day < 10 ? `0${day}` : `${day}`;
+        const hour = data.getUTCHours();
+        const hourStr = hour < 10 ? `0${hour}` : `${hour}`;
+        const minutes = data.getUTCMinutes();
+        const minutesStr = minutes < 10 ? `0${minutes}` : `${minutes}`;
+        const seconds = data.getUTCSeconds();
+        const secondsStr = seconds < 10 ? `0${seconds}` : `${seconds}`;
+        return `${year}-${monStr}-${dayStr} ${hourStr}:${minutesStr}:${secondsStr}`;
+    },
 }
 
 SignFetch = {
     post: function(url, data, token) {
-        dateStr = DateUtil.currentTimeStr();
+        // const date = new Date();
+        // timestamp = date.UTC() + '';
+        dateStr = DateUtil.currentUTCTimeStr();
+        // console.log(timestamp)
         sign = Encrypt.generateSign(data, dateStr, token)
         headers = { 'date-str': dateStr, 'sign': sign };
         return axios.post(url, data, { 'headers': headers });
